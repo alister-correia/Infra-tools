@@ -6,6 +6,32 @@ An optional AI chat mode (powered by Claude) lets you type plain English command
 
 ---
 
+## Privacy & Data Storage
+
+**No data is stored anywhere by this tool.**
+
+- All VCD credentials (username, password) and your Anthropic API key are stored exclusively in your **browser's sessionStorage** — they exist only for the lifetime of that browser tab and are automatically cleared when the tab is closed
+- Credentials are never written to disk, never logged, and never persisted on the server
+- Every API call to VCD is a **live fetch** — there is no caching, no database, and no session state on the server side
+- Each request from the browser sends the credentials as HTTP headers directly to the backend, which uses them to authenticate with VCD in real time and returns the result immediately
+- The server holds no state between requests
+
+---
+
+## How Login Works
+
+1. You enter your VCD username and password in the login form
+2. The browser stores them in `sessionStorage` (tab-only, never written to disk)
+3. On login, the tool makes a live request to VCD to fetch the list of organisations your account has access to — this confirms the credentials are valid
+4. You select your org from the dropdown — another live VCD call fetches the VDCs available in that org
+5. You select a VDC — all subsequent operations are scoped to it
+6. Every task or query you run sends your credentials as request headers to the backend, which authenticates with VCD on the fly and returns the live result
+7. When you close the tab or click **Sign Out**, all credentials are wiped from `sessionStorage` immediately
+
+**The server never stores, logs, or caches your credentials at any point.**
+
+---
+
 ## Features
 
 - List and inspect VMs, vApps, networks, edge gateways, firewall/NAT rules, security groups, IP sets
@@ -15,7 +41,6 @@ An optional AI chat mode (powered by Claude) lets you type plain English command
 - Create org VDC networks, edge firewall rules, NAT rules, security groups, IP sets
 - Dry-run mode — preview any write operation before executing
 - Multi-environment support — switch between VCD environments from the UI
-- Per-user login — credentials are never stored server-side
 - **Optional AI mode** — toggle on to use natural-language chat; requires an Anthropic API key
 
 ---
@@ -67,7 +92,7 @@ Example with two environments:
 VCD_ENVIRONMENTS=Production:https://vcloud.corp.com,DR:https://vcloud-dr.corp.com
 ```
 
-> The `.env` file is excluded from version control. Never commit it.
+> The `.env` file contains your VCD host URLs and is excluded from version control. Never commit it.
 
 ### 4. Start the server
 
@@ -89,8 +114,9 @@ nohup python3 main.py > logs/server.log 2>&1 &
 
 1. Open **http://localhost:3030** in your browser
 2. Enter your VCD username and password
-3. Select your VCD environment and org from the dropdowns
-4. Select a VDC — all operations are scoped to the selected VDC
+3. The tool fetches your accessible orgs live from VCD to confirm the credentials
+4. Select your org — VDCs are fetched live from VCD
+5. Select a VDC — all operations are scoped to it
 
 No API key is needed at this stage. The tool is fully usable without one.
 
@@ -102,7 +128,8 @@ The UI has an **AI toggle** in the top bar. When switched on:
 
 - A chat panel appears where you can type plain-English commands
 - You will be prompted to enter your **Anthropic API key**
-- The key is stored only in your browser tab (sessionStorage) and is never sent to the server or stored anywhere
+- The key is stored only in your browser tab (`sessionStorage`) and is cleared when the tab is closed
+- It is never sent to the server except as a request header to make the Claude API call — it is not logged or stored
 
 **Example commands in AI mode:**
 ```
@@ -153,4 +180,4 @@ infra-assistant/
 
 - The VCD account used must have at least read access to the target VDC
 - `adminVApp` query type is used for vApp listing — requires org-admin or equivalent tenant role
-- CPU and memory are fetched individually per VM; listing many VMs across large vApps may take a few seconds
+- CPU and memory are fetched individually per VM; listing many VMs may take a few seconds
