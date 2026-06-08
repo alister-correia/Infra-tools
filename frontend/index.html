@@ -1,0 +1,2372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VMware Cloud Director Automation tool</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0d1117;
+      --surface:     #161b22;
+      --surface2:    #21262d;
+      --border:      #30363d;
+      --text:        #e6edf3;
+      --muted:       #8b949e;
+      --vcd:         #58a6ff;
+      --accent:      #238636;
+      --ok:          #3fb950;
+      --fail:        #f85149;
+      --warn:        #d29922;
+      --radius:      8px;
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .logo {
+      width: 26px; height: 26px;
+      background: linear-gradient(135deg, #f0883e, var(--vcd));
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 0.95rem; font-weight: 600; flex-shrink: 0; }
+
+    .header-selectors {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .sel-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sel-group label {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+    .sel-group select,
+    .sel-group input[type="text"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.8rem;
+      padding: 4px 8px;
+      outline: none;
+    }
+    .sel-group select { cursor: pointer; }
+    .sel-group input[type="text"] { width: 130px; }
+    .sel-group input[type="text"]::placeholder { color: var(--muted); }
+    .sel-group select:focus,
+    .sel-group input[type="text"]:focus { border-color: var(--vcd); }
+
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-list {
+      position: absolute;
+      top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 200;
+      display: none;
+    }
+    .autocomplete-list.open { display: block; }
+    .autocomplete-item {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .autocomplete-item:hover,
+    .autocomplete-item.highlighted { background: var(--border); }
+    .autocomplete-item strong { color: var(--vcd); font-weight: 600; }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ai-toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .toggle-switch {
+      position: relative;
+      width: 34px; height: 18px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: var(--border);
+      border-radius: 18px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      left: 2px; top: 2px;
+      width: 14px; height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: var(--vcd); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); }
+
+    .btn-logout {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      letter-spacing: 0.04em;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .btn-logout:hover { border-color: var(--fail); color: var(--fail); }
+    .btn-clear {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      letter-spacing: 0.04em;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .btn-clear:hover { border-color: var(--warn); color: var(--warn); }
+
+    /* ── Workspace ── */
+    .workspace {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      min-width: 180px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-filter {
+      padding: 10px 10px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-filter input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.78rem;
+      padding: 6px 8px;
+      outline: none;
+    }
+    .sidebar-filter input:focus { border-color: var(--vcd); }
+    .sidebar-filter input::placeholder { color: var(--muted); }
+
+    .sidebar-tasks {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0 4px;
+    }
+    .sidebar-tasks::-webkit-scrollbar { width: 3px; }
+    .sidebar-tasks::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .task-group { }
+    .task-group.hidden { display: none; }
+    .task-group.collapsed .task-item { display: none; }
+
+    .task-group-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px 3px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-transform: uppercase;
+      user-select: none;
+      cursor: pointer;
+    }
+    .task-group-header:hover { color: var(--text); }
+    .task-group-icon { font-size: 0.75rem; }
+    .task-group-chevron {
+      margin-left: auto;
+      font-size: 0.6rem;
+      transition: transform 0.15s;
+      line-height: 1;
+    }
+    .task-group.collapsed .task-group-chevron { transform: rotate(-90deg); }
+
+    .task-item {
+      padding: 6px 10px 6px 18px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: var(--muted);
+      border-left: 2px solid transparent;
+      transition: background 0.1s, color 0.1s, border-color 0.1s;
+    }
+    .task-item:hover { background: var(--surface2); color: var(--text); }
+    .task-item.active {
+      background: rgba(88,166,255,0.08);
+      color: var(--vcd);
+      border-left-color: var(--vcd);
+    }
+    .task-item.hidden { display: none; }
+
+    .sidebar-footer {
+      padding: 10px 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Main panel ── */
+    .main-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+    }
+    .main-content::-webkit-scrollbar { width: 4px; }
+    .main-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* Empty state */
+    .empty-state {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--muted);
+    }
+    .empty-state .e-arrow { font-size: 1.8rem; opacity: 0.25; }
+    .empty-state .e-text { font-size: 0.88rem; }
+    .empty-state .e-sub { font-size: 0.72rem; opacity: 0.5; }
+
+    /* Task view */
+    #taskView { display: none; }
+
+    .task-view-header {
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .task-view-header h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 3px; }
+    .task-view-header p { font-size: 0.78rem; color: var(--muted); }
+
+    /* Param form */
+    .param-form {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .param-field { display: flex; flex-direction: column; gap: 4px; }
+    .param-field label {
+      font-size: 0.66rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .param-field select,
+    .param-field input[type="text"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.8rem;
+      padding: 6px 10px;
+      outline: none;
+      min-width: 170px;
+    }
+    .param-field select:focus,
+    .param-field input[type="text"]:focus { border-color: var(--vcd); }
+
+    .param-auto { display: flex; flex-direction: column; gap: 4px; }
+    .param-auto .param-lbl {
+      font-size: 0.66rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .param-auto .param-val {
+      font-size: 0.8rem;
+      padding: 6px 10px;
+      background: rgba(88,166,255,0.07);
+      border: 1px solid rgba(88,166,255,0.2);
+      border-radius: 6px;
+      color: var(--vcd);
+    }
+
+    .run-btn {
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 7px 18px;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+      height: 32px;
+    }
+    .run-btn:hover { opacity: 0.85; }
+    .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .run-btn.danger { background: #b91c1c; }
+
+    /* Result area */
+    .result-notice {
+      padding: 10px 14px;
+      border-left: 3px solid var(--muted);
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+    .result-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-export-csv {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      letter-spacing: 0.04em;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-export-csv:hover { border-color: var(--vcd); color: var(--vcd); }
+
+    .result-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--vcd);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .result-error {
+      background: rgba(248,81,73,0.07);
+      border: 1px solid rgba(248,81,73,0.25);
+      border-radius: 6px;
+      color: var(--fail);
+      padding: 12px 16px;
+      font-size: 0.82rem;
+    }
+
+    .result-ok {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(63,185,80,0.07);
+      border: 1px solid rgba(63,185,80,0.25);
+      border-radius: 6px;
+      color: var(--ok);
+      padding: 14px 18px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .empty-result {
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 16px 0;
+    }
+
+    /* Table */
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    .result-table th {
+      text-align: left;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .result-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(48,54,61,0.5);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    .result-table tr:last-child td { border-bottom: none; }
+    .result-table tr:hover td { background: rgba(33,38,45,0.6); }
+    .result-table tr.rule-user td   { background: rgba(56,139,253,0.06); }
+    .result-table tr.rule-system td { background: rgba(139,148,158,0.08); color: var(--muted); }
+    .result-table tr.rule-user:hover td   { background: rgba(56,139,253,0.14); }
+    .result-table tr.rule-system:hover td { background: rgba(139,148,158,0.18); }
+
+    /* Status pill */
+    .spill {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .spill-on  { background: rgba(63,185,80,0.1);  color: var(--ok);   border: 1px solid rgba(63,185,80,0.25); }
+    .spill-off { background: rgba(248,81,73,0.1);  color: var(--fail); border: 1px solid rgba(248,81,73,0.25); }
+    .spill-mid { background: rgba(139,148,158,0.1); color: var(--muted); border: 1px solid var(--border); }
+
+    /* Detail card */
+    .detail-card { display: flex; flex-direction: column; gap: 18px; }
+    .detail-title {
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .detail-item {}
+    .detail-key {
+      font-size: 0.64rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+    .detail-val {
+      font-size: 0.82rem;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+    }
+    .detail-section {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      padding-top: 4px;
+      padding-bottom: 6px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Security banner ── */
+    .security-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(210,153,34,0.08);
+      border-bottom: 1px solid rgba(210,153,34,0.25);
+      color: var(--warn);
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 7px 18px;
+      flex-shrink: 0;
+      letter-spacing: 0.01em;
+    }
+    .security-banner .ban-icon { font-size: 0.85rem; }
+
+    /* ── AI Strip ── */
+    .ai-strip {
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      height: 270px;
+      flex-shrink: 0;
+    }
+    .ai-strip-header {
+      padding: 6px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .ai-history {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .ai-history::-webkit-scrollbar { width: 3px; }
+    .ai-history::-webkit-scrollbar-thumb { background: var(--border); }
+    .ai-msg { font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; }
+    .ai-msg.user { color: var(--vcd); }
+    .ai-msg.assistant { color: var(--text); }
+    .ai-msg .ai-label { font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 2px; }
+
+    .ai-input-row {
+      display: flex;
+      gap: 8px;
+      padding: 8px 14px;
+      border-top: 1px solid var(--border);
+      align-items: flex-end;
+    }
+    .ai-input-row textarea {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.8rem;
+      padding: 7px 10px;
+      resize: none;
+      height: 34px;
+      outline: none;
+      line-height: 1.4;
+    }
+    .ai-input-row textarea:focus { border-color: var(--vcd); }
+    .ai-input-row textarea::placeholder { color: var(--muted); }
+
+    /* ── Login modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.hidden { display: none; }
+
+    .modal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 30px 34px;
+      width: 100%;
+      max-width: 390px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .modal-card h2 { font-size: 1.05rem; font-weight: 700; }
+    .modal-card p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; margin-top: 4px; }
+
+    .form-field { display: flex; flex-direction: column; gap: 5px; }
+    .form-field label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .form-field input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 0.875rem;
+      padding: 9px 12px;
+      outline: none;
+      width: 100%;
+    }
+    .form-field input:focus { border-color: var(--vcd); }
+    .form-field input::placeholder { color: var(--muted); }
+
+    .form-error { font-size: 0.76rem; color: var(--fail); display: none; }
+    .form-error.visible { display: block; }
+
+    .btn-primary {
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 10px;
+      width: 100%;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.82rem;
+      padding: 8px;
+      width: 100%;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--text); color: var(--text); }
+
+    * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  </style>
+</head>
+<body>
+
+<!-- Login modal -->
+<div class="modal-overlay" id="loginOverlay">
+  <div class="modal-card">
+    <div>
+      <h2>Sign in</h2>
+      <p>VCD credentials are kept only for this browser tab.</p>
+    </div>
+    <div class="form-field">
+      <label>VCD Username</label>
+      <input id="loginUser" type="text" placeholder="user@domain.com" autocomplete="username" />
+    </div>
+    <div class="form-field">
+      <label>VCD Password</label>
+      <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <div class="form-error" id="loginError"></div>
+    <button class="btn-primary" id="loginBtn" onclick="doLogin()">Continue</button>
+  </div>
+</div>
+
+<!-- API key modal (AI mode) -->
+<div class="modal-overlay hidden" id="apiKeyOverlay">
+  <div class="modal-card">
+    <div>
+      <h2>Anthropic API Key</h2>
+      <p>Required for AI mode. The key is used only in this tab and never sent to our servers.</p>
+    </div>
+    <div class="form-field">
+      <label>API Key</label>
+      <input id="apiKeyInput" type="password" placeholder="sk-ant-…" autocomplete="off" />
+    </div>
+    <div class="form-error" id="apiKeyError"></div>
+    <button class="btn-primary" onclick="saveApiKey()">Enable AI Mode</button>
+    <button class="btn-secondary" onclick="cancelApiKey()">Cancel</button>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal-overlay hidden" id="confirmOverlay">
+  <div class="modal-card" style="max-width:340px">
+    <h2 id="confirmTitle">Confirm Action</h2>
+    <p id="confirmMsg"></p>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn-secondary" onclick="confirmResolve(false)">Cancel</button>
+      <button class="btn-primary" style="background:#b91c1c" onclick="confirmResolve(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">V</div>
+  <h1>VMware Cloud Director Automation tool</h1>
+
+  <div class="header-selectors" id="headerSelectors" style="display:none">
+    <div class="sel-group" id="envGroup" style="display:none">
+      <label>Env</label>
+      <select id="envSelect" onchange="switchEnvironment(this.value)">
+        <option value="">— select —</option>
+      </select>
+    </div>
+
+    <div class="sel-group">
+      <label>Org</label>
+      <div class="autocomplete-wrap">
+        <input id="orgInput" type="text" placeholder="Search org…" autocomplete="off" />
+        <div class="autocomplete-list" id="orgDropdown"></div>
+      </div>
+    </div>
+
+    <div class="sel-group" id="vdcGroup" style="display:none">
+      <label>VDC</label>
+      <div class="autocomplete-wrap">
+        <input id="vdcInput" type="text" placeholder="Search VDC…" autocomplete="off" />
+        <div class="autocomplete-list" id="vdcDropdown"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div class="ai-toggle-wrap">
+      <span>AI</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="aiToggle" onchange="toggleAI(this.checked)" />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <button class="btn-clear" onclick="clearSession()" title="Clear org/VDC selection">Clear session</button>
+    <button class="btn-logout" onclick="logout()">Sign out</button>
+  </div>
+</header>
+
+<div class="workspace">
+  <aside class="sidebar">
+    <div class="sidebar-filter">
+      <input type="text" id="taskFilter" placeholder="🔍 Filter tasks…" oninput="filterTasks(this.value)" />
+    </div>
+    <div class="sidebar-tasks" id="sidebarTasks"></div>
+    <div class="sidebar-footer">
+      <div class="ai-toggle-wrap" style="font-size:0.72rem">
+        <span style="color:var(--muted)">AI Mode</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="aiToggle2" onchange="document.getElementById('aiToggle').checked=this.checked;toggleAI(this.checked)" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-panel">
+    <div class="security-banner">
+      <span class="ban-icon">🔒</span>
+      This tool does not permit deletion of any resources. Only read and create operations are available.
+    </div>
+    <div class="main-content" id="mainContent">
+      <div class="empty-state" id="emptyState">
+        <div class="e-arrow">←</div>
+        <div class="e-text">Select a task from the sidebar</div>
+        <div class="e-sub">Select an Org and VDC first</div>
+      </div>
+      <div id="taskView">
+        <div class="task-view-header">
+          <h2 id="taskTitle"></h2>
+          <p id="taskDesc"></p>
+        </div>
+        <div class="param-form" id="paramForm"></div>
+        <div id="resultArea"></div>
+      </div>
+    </div>
+
+    <div class="ai-strip" id="aiStrip" style="display:none">
+      <div class="ai-strip-header">AI Assistant — experimental</div>
+      <div class="ai-history" id="aiHistory"></div>
+      <div class="ai-input-row">
+        <textarea id="aiInput" placeholder="Ask about your infrastructure…" rows="1"></textarea>
+        <button class="run-btn" onclick="sendAI()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Task definitions ───────────────────────────────────────────────────────
+const enc = s => encodeURIComponent(s);
+
+const TASKS = [
+  // COMPUTE
+  { id:'list_vms', label:'List all VMs', cat:'COMPUTE', icon:'⚡',
+    desc:'All VMs in the VDC with power state, CPU, and RAM.',
+    params:[],
+    run: () => apiFetch('/api/tasks/vms'),
+    render: renderVmTable },
+
+  { id:'powered_off', label:'Powered-off VMs', cat:'COMPUTE', icon:'⚡',
+    desc:'VMs currently in a powered-off state.',
+    params:[],
+    run: () => apiFetch('/api/tasks/vms?power_state=POWERED_OFF'),
+    render: renderVmTable },
+
+  { id:'vm_status_summary', label:'VM Status Summary', cat:'COMPUTE', icon:'⚡',
+    desc:'Count of VMs by power state for the selected VDC.',
+    params:[],
+    run: () => apiFetch('/api/tasks/vms'),
+    render: vms => {
+      const counts = {};
+      vms.forEach(v => { const s = v.status||'UNKNOWN'; counts[s] = (counts[s]||0)+1; });
+      const total = vms.length;
+      const cards = Object.entries(counts).map(([s,n]) => {
+        const col = s==='POWERED_ON'?'var(--ok)':s==='POWERED_OFF'?'var(--fail)':'var(--muted)';
+        return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px 24px;min-width:130px;text-align:center;">
+          <div style="font-size:1.9rem;font-weight:700;color:${col}">${n}</div>
+          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">${s.replace(/_/g,' ')}</div>
+        </div>`;
+      }).join('');
+      return `<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:20px">
+        ${cards}
+        <div style="background:var(--surface2);border:1px dashed var(--border);border-radius:8px;padding:16px 24px;min-width:130px;text-align:center;">
+          <div style="font-size:1.9rem;font-weight:700;color:var(--vcd)">${total}</div>
+          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Total VMs</div>
+        </div>
+      </div>` + renderVmTable(vms);
+    } },
+
+  { id:'vm_details', label:'VM Details', cat:'COMPUTE', icon:'⚡',
+    desc:'CPU, RAM, and disk specs for a specific VM.',
+    params:[{ id:'vm_name', label:'VM', type:'vm-select' }],
+    run: p => apiFetch(`/api/tasks/vm?name=${enc(p.vm_name)}`),
+    render: renderVmDetail },
+
+  { id:'vm_power', label:'Power On / Off / Reboot', cat:'COMPUTE', icon:'⚡',
+    desc:'Change the power state of a VM.',
+    params:[
+      { id:'vm_name', label:'VM', type:'vm-select' },
+      { id:'action', label:'Action', type:'select', options:[
+        { value:'poweron',  label:'Power On' },
+        { value:'poweroff', label:'Power Off' },
+        { value:'reset',    label:'Reboot' },
+      ]},
+    ],
+    run: p => apiFetch(`/api/tasks/vm/power?name=${enc(p.vm_name)}&action=${p.action}`, { method:'POST' }),
+    render: () => renderOk('Power action sent successfully.'),
+    confirm: true },
+
+  { id:'bulk_vm_power', label:'Bulk VM Power', cat:'COMPUTE', icon:'⚡',
+    desc:'Apply a power action to multiple VMs at once.',
+    params:[
+      { id:'bulk_action', label:'Action', type:'select', options:[
+        { value:'poweron',  label:'Power On' },
+        { value:'poweroff', label:'Power Off' },
+        { value:'reset',    label:'Reboot' },
+      ]},
+      { id:'selected_vms', label:'Select VMs', type:'vm-multi-select' },
+    ],
+    validate: p => {
+      if (!p.bulk_action) return 'Select an action.';
+      if (!Array.isArray(p.selected_vms) || !p.selected_vms.length) return 'Select at least one VM.';
+      return null;
+    },
+    run: async p => {
+      const vms = Array.isArray(p.selected_vms) ? p.selected_vms : [];
+      const results = await Promise.allSettled(
+        vms.map(name => apiFetch(`/api/tasks/vm/power?name=${enc(name)}&action=${p.bulk_action}`, {method:'POST'}))
+      );
+      const ok   = results.filter(r => r.status === 'fulfilled').length;
+      const fail = results.filter(r => r.status === 'rejected').length;
+      return { count: ok, failed: fail };
+    },
+    render: data => {
+      let msg = `Power action applied to ${data.count} VM${data.count!==1?'s':''}.`;
+      if (data.failed) msg += ` ${data.failed} VM${data.failed!==1?'s':''} failed.`;
+      return renderOk(msg);
+    },
+    confirm: true },
+
+  // VAPP
+  { id:'list_vapps', label:'List vApps', cat:'VAPP', icon:'📦',
+    desc:'All vApps in the VDC with status.',
+    params:[],
+    run: () => apiFetch('/api/tasks/vapps'),
+    render: renderVappTable },
+
+  { id:'vapp_details', label:'vApp Details', cat:'VAPP', icon:'📦',
+    desc:'VMs and status inside a specific vApp.',
+    params:[{ id:'vapp_name', label:'vApp', type:'vapp-select' }],
+    run: p => apiFetch(`/api/tasks/vapp?name=${enc(p.vapp_name)}`),
+    render: renderVappDetail },
+
+  { id:'vapp_power', label:'Power On / Off vApp', cat:'VAPP', icon:'📦',
+    desc:'Start or stop an entire vApp and all its VMs.',
+    params:[
+      { id:'vapp_name', label:'vApp', type:'vapp-select' },
+      { id:'action', label:'Action', type:'select', options:[
+        { value:'poweron',  label:'Power On' },
+        { value:'poweroff', label:'Power Off' },
+      ]},
+    ],
+    run: p => apiFetch(`/api/tasks/vapp/power?name=${enc(p.vapp_name)}&action=${p.action}`, { method:'POST' }),
+    render: () => renderOk('vApp power action sent successfully.'),
+    confirm: true },
+
+  // NETWORKING
+  { id:'list_networks', label:'List Networks', cat:'NETWORKING', icon:'🌐',
+    desc:'All Org VDC networks with type and gateway.',
+    params:[],
+    run: () => apiFetch('/api/tasks/networks'),
+    render: data => renderTable(
+      ['Name','Type','Gateway','Prefix'],
+      data.map(n => [n.name, n.type||'—', n.gateway||'—', n.prefix_length ? '/'+n.prefix_length : '—'])) },
+
+  { id:'network_details', label:'Network Details', cat:'NETWORKING', icon:'🌐',
+    desc:'Full subnet, DHCP pool, and DNS info for a network.',
+    params:[{ id:'network_name', label:'Network', type:'network-select' }],
+    run: p => apiFetch(`/api/tasks/network?name=${enc(p.network_name)}`),
+    render: renderNetworkDetail },
+
+  // GATEWAY
+  { id:'list_egws', label:'List Edge Gateways', cat:'GATEWAY', icon:'🛡',
+    desc:'Edge gateways in the VDC.',
+    params:[],
+    run: () => apiFetch('/api/tasks/edge-gateways'),
+    render: data => renderTable(
+      ['Name','Backing','Status'],
+      data.map(g => [
+        escHtml(g.name),
+        g.backing_type === 'NSX-V'
+          ? '<span style="color:var(--warn)">NSX-V</span>'
+          : '<span style="color:var(--ok)">NSX-T</span>',
+        spill(g.status),
+      ])) },
+
+  { id:'fw_rules', label:'List Firewall Rules', cat:'GATEWAY', icon:'🛡',
+    desc:'User-defined and system firewall rules on an edge gateway.',
+    exportable: true,
+    params:[{ id:'gateway_id', label:'Edge Gateway', type:'edge-select' }],
+    run: p => apiFetch(`/api/tasks/firewall-rules?gateway_id=${enc(p.gateway_id)}`),
+    render: data => {
+      if (!data.length) return '<div class="empty-result">No rules found.</div>';
+      const headers = ['Name','Type','Action','Status','Sources','Destinations','Service'];
+      const rows = data.map(r => {
+        const cls = r.rule_type === 'system' ? 'rule-system' : 'rule-user';
+        const cells = [
+          r.name||'—',
+          r.rule_type === 'system' ? 'system' : 'user',
+          r.action||'—',
+          r.enabled ? '✓ Enabled' : '✗ Disabled',
+          (r.source_groups||[]).join(', ')||'Any',
+          (r.dest_groups||[]).join(', ')||'Any',
+          (r.app_ports||[]).join(', ')||'Any',
+        ];
+        return `<tr class="${cls}">${cells.map(c=>`<td>${c??'—'}</td>`).join('')}</tr>`;
+      });
+      return `<table class="result-table">
+        <thead><tr>${headers.map(h=>`<th>${escHtml(h)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.join('')}</tbody></table>`;
+    } },
+
+  { id:'nat_rules', label:'List NAT Rules', cat:'GATEWAY', icon:'🛡',
+    desc:'NAT rules on an edge gateway.',
+    exportable: true,
+    params:[{ id:'gateway_id', label:'Edge Gateway', type:'edge-select' }],
+    run: p => apiFetch(`/api/tasks/nat-rules?gateway_id=${enc(p.gateway_id)}`),
+    render: data => renderTable(
+      ['Name','Type','External IP','Internal IP','Enabled'],
+      data.map(r => [r.name, r.type||'—', r.external_ip||'—', r.internal_ip||'—', r.enabled ? '✓':'✗'])) },
+
+  { id:'add_fw_rule', label:'Add Firewall Rule', cat:'GATEWAY', icon:'🛡',
+    desc:'Create a firewall rule. Select a predefined application or specify protocol/ports manually.',
+    params:[
+      { id:'gateway_id',          label:'Edge Gateway',       type:'edge-select' },
+      { id:'rule_name',           label:'Rule Name',          type:'text', placeholder:'e.g. allow-web-traffic' },
+      { id:'source_ips',          label:'Source IPs / CIDRs', type:'any-or-text', placeholder:'e.g. 10.0.0.0/8, 192.168.1.5', optional:true },
+      { id:'dest_ips',            label:'Dest IPs / CIDRs',   type:'any-or-text', placeholder:'e.g. 10.10.20.0/24', optional:true },
+      { id:'app_port_profile_id', label:'Application',        type:'app-profile-select', optional:true },
+      { id:'protocol',            label:'Protocol (if no app)',type:'select', optional:true, options:[
+        { value:'',     label:'— none —' },
+        { value:'TCP',  label:'TCP' },
+        { value:'UDP',  label:'UDP' },
+        { value:'ICMP', label:'ICMP' },
+      ]},
+      { id:'dest_ports',          label:'Dest Ports',         type:'text', placeholder:'e.g. 80, 443 (TCP/UDP only)', optional:true },
+      { id:'action',              label:'Action',             type:'select', options:[
+        { value:'ALLOW', label:'Allow' },
+        { value:'DROP',  label:'Drop' },
+      ]},
+      { id:'enabled', label:'Enabled', type:'select', options:[
+        { value:'true',  label:'Yes' },
+        { value:'false', label:'No' },
+      ]},
+      { id:'position', label:'Position', type:'text', placeholder:'e.g. 1 (leave blank for last)', optional:true },
+    ],
+    run: p => apiFetch(
+      `/api/tasks/firewall-rules?gateway_id=${enc(p.gateway_id)}&rule_name=${enc(p.rule_name)}&source_ips=${enc(p.source_ips||'')}&dest_ips=${enc(p.dest_ips||'')}&protocol=${enc(p.protocol||'')}&dest_ports=${enc(p.dest_ports||'')}&app_port_profile_id=${enc(p.app_port_profile_id||'')}&action=${p.action}&enabled=${p.enabled}&position=${enc(p.position||'0')}`,
+      { method:'POST' }
+    ),
+    render: () => renderOk('Firewall rule created. Refresh the rule list to confirm.'),
+    confirm: true },
+
+  { id:'gateway_ip_sets', label:'IP Sets', cat:'GATEWAY', icon:'🛡',
+    desc:'IP sets available for use in this gateway\'s firewall rules.',
+    params:[{ id:'gateway_id', label:'Edge Gateway', type:'edge-select' }],
+    run: p => apiFetch(`/api/tasks/gateway-ip-sets?gateway_id=${enc(p.gateway_id)}`),
+    render: data => data.length
+      ? renderTable(['Name','IP Addresses'], data.map(i => [i.name, (i.ip_addresses||[]).join(', ')||'—']))
+      : '<div class="result-notice">No IP sets found. This VCD deployment does not expose a readable IP sets collection for plain-VDC gateways — manage them in the VCD UI directly.</div>' },
+
+  { id:'add_nat_rule', label:'Add NAT Rule', cat:'GATEWAY', icon:'🛡',
+    desc:'Create a new DNAT or SNAT rule on an edge gateway.',
+    params:[
+      { id:'gateway_id',  label:'Edge Gateway', type:'edge-select' },
+      { id:'rule_name',   label:'Rule Name',    type:'text', placeholder:'e.g. dnat-web-80' },
+      { id:'rule_type',   label:'Type',         type:'select', options:[
+        { value:'DNAT', label:'DNAT (inbound)' },
+        { value:'SNAT', label:'SNAT (outbound)' },
+      ]},
+      { id:'external_ip', label:'External IP',  type:'text', placeholder:'e.g. 203.0.113.10' },
+      { id:'internal_ip', label:'Internal IP',  type:'text', placeholder:'e.g. 192.168.1.10' },
+      { id:'enabled', label:'Enabled', type:'select', options:[
+        { value:'true',  label:'Yes' },
+        { value:'false', label:'No' },
+      ]},
+    ],
+    run: p => apiFetch(
+      `/api/tasks/nat-rules?gateway_id=${enc(p.gateway_id)}&rule_name=${enc(p.rule_name)}&rule_type=${p.rule_type}&external_ip=${enc(p.external_ip)}&internal_ip=${enc(p.internal_ip)}&enabled=${p.enabled}`,
+      { method:'POST' }
+    ),
+    render: () => renderOk('NAT rule created. Refresh the rule list to confirm.'),
+    confirm: true },
+
+  // SECURITY
+  { id:'ip_sets', label:'IP Sets', cat:'SECURITY', icon:'🔐',
+    desc:'IP sets defined in a VDC group.',
+    params:[{ id:'group_id', label:'VDC Group', type:'vdc-group-select' }],
+    run: p => apiFetch(`/api/tasks/ip-sets?group_id=${enc(p.group_id)}`),
+    render: data => renderTable(['Name','IP Addresses'],
+      data.map(i => [i.name, (i.ip_addresses||[]).join(', ')||'—'])) },
+
+  { id:'security_groups', label:'Security Groups', cat:'SECURITY', icon:'🔐',
+    desc:'Security groups defined in a VDC group.',
+    params:[{ id:'group_id', label:'VDC Group', type:'vdc-group-select' }],
+    run: p => apiFetch(`/api/tasks/security-groups?group_id=${enc(p.group_id)}`),
+    render: data => renderTable(['Name'], data.map(g => [g.name])) },
+
+  { id:'dfw_rules', label:'DFW Rules', cat:'SECURITY', icon:'🔐',
+    desc:'Distributed Firewall rules across all policies in a VDC group (non-edge, micro-segmentation).',
+    exportable: true,
+    params:[{ id:'group_id', label:'VDC Group', type:'vdc-group-select' }],
+    run: p => apiFetch(`/api/tasks/dfw-rules?group_id=${enc(p.group_id)}`),
+    render: data => renderTable(
+      ['Policy','Name','Action','Status','Sources','Destinations','Services'],
+      data.map(r => [
+        r.policy||'—', r.name||'—', r.action||'—',
+        r.enabled ? '✓':'✗',
+        (r.source_groups||[]).join(', ')||'Any',
+        (r.dest_groups||[]).join(', ')||'Any',
+        (r.app_ports||[]).join(', ')||'Any'])) },
+
+  // ── Edit VM Compute ──────────────────────────────────────────────────────
+  { id:'edit_vm_compute', label:'Edit VM Compute', cat:'COMPUTE', icon:'⚡',
+    desc:'Resize CPU and/or memory on an existing VM. <span style="color:#f85149;font-weight:600">⚠ VM must be powered off first.</span>',
+    params:[
+      { id:'vm_name',   label:'VM Name',    type:'vm-select' },
+      { id:'cpu',       label:'CPU Cores',  type:'text', placeholder:'e.g. 4 (leave blank to keep current)', optional:true },
+      { id:'memory_gb', label:'Memory (GB)',type:'text', placeholder:'e.g. 8 (leave blank to keep current)', optional:true },
+    ],
+    run: p => apiFetch(
+      `/api/tasks/vm/compute?vm_name=${enc(p.vm_name)}&cpu=${enc(p.cpu||'0')}&memory_gb=${enc(p.memory_gb||'0')}`,
+      { method:'POST' }
+    ),
+    render: () => renderOk('VM compute updated. Power on the VM to apply changes.'),
+    confirm: true },
+
+  // ── Resize VM Disk ───────────────────────────────────────────────────────
+  { id:'resize_vm_disk', label:'Resize VM Disk', cat:'COMPUTE', icon:'⚡',
+    desc:'Expand a VM disk. <span style="color:#f85149;font-weight:600">⚠ VM must be powered off. Disks can only be expanded, not shrunk.</span><br><span style="color:#f85149;font-weight:600">⚠ To add a new disk, please use the VCD UI.</span>',
+    params:[
+      { id:'vm_name',    label:'VM',           type:'vm-select' },
+      { id:'disk_index', label:'Disk',         type:'disk-select' },
+      { id:'new_size_gb',label:'New Size (GB)',type:'text', placeholder:'e.g. 100' },
+    ],
+    run: p => apiFetch(
+      `/api/tasks/vm/disk?vm_name=${enc(p.vm_name)}&disk_index=${enc(p.disk_index)}&new_size_gb=${enc(p.new_size_gb)}`,
+      { method:'PUT' }
+    ),
+    render: () => renderOk('Disk resized. Power on the VM to confirm the new size.'),
+    confirm: true },
+
+  // ── VM Snapshots ─────────────────────────────────────────────────────────
+  { id:'list_snapshots', label:'List VM Snapshots', cat:'COMPUTE', icon:'⚡',
+    desc:'List all snapshots for a VM.',
+    params:[{ id:'vm_name', label:'VM', type:'vm-select' }],
+    run: p => apiFetch(`/api/tasks/vm/snapshots?vm_name=${enc(p.vm_name)}`),
+    render: data => data.length
+      ? renderTable(['Name','Created','Memory','Size (MB)'],
+          data.map(s => [s.name||'—', s.created||'—', s.memory?'Yes':'No', s.size_mb??'—']))
+      : '<div class="empty-result">No snapshots found.</div>' },
+
+  { id:'create_snapshot', label:'Create VM Snapshot', cat:'COMPUTE', icon:'⚡',
+    desc:'Create a snapshot of a VM at its current state.',
+    params:[
+      { id:'vm_name',       label:'VM',            type:'vm-select' },
+      { id:'snapshot_name', label:'Snapshot Name', type:'text', placeholder:'e.g. pre-patching', optional:true },
+    ],
+    run: p => apiFetch(
+      `/api/tasks/vm/snapshot?vm_name=${enc(p.vm_name)}&snapshot_name=${enc(p.snapshot_name||'')}`,
+      { method:'POST' }
+    ),
+    render: () => renderOk('Snapshot created successfully.'),
+    confirm: true },
+
+  { id:'revert_snapshot', label:'Revert VM to Snapshot', cat:'COMPUTE', icon:'⚡',
+    desc:'Revert a VM to its most recent snapshot.',
+    params:[{ id:'vm_name', label:'VM', type:'vm-select' }],
+    run: p => apiFetch(`/api/tasks/vm/snapshot/revert?vm_name=${enc(p.vm_name)}`, { method:'POST' }),
+    render: () => renderOk('VM reverted to last snapshot.'),
+    confirm: true },
+
+  // ── Create Network ───────────────────────────────────────────────────────
+  { id:'create_network', label:'Create Network', cat:'NETWORKING', icon:'🌐',
+    desc:'Create a new Org VDC network (routed or isolated).',
+    params:[
+      { id:'name',           label:'Network Name',   type:'text', placeholder:'e.g. app-tier-net' },
+      { id:'network_type',   label:'Type',           type:'select', options:[
+        { value:'ISOLATED',   label:'Isolated' },
+        { value:'NAT_ROUTED', label:'Routed (NAT)' },
+      ]},
+      { id:'gateway',        label:'Gateway IP',     type:'text', placeholder:'e.g. 192.168.10.1' },
+      { id:'prefix_length',  label:'Prefix Length',  type:'text', placeholder:'e.g. 24' },
+      { id:'edge_gateway_id',label:'Edge Gateway',   type:'edge-select', optional:true },
+      { id:'dns1',           label:'DNS 1',          type:'text', placeholder:'e.g. 8.8.8.8', optional:true },
+      { id:'dns2',           label:'DNS 2',          type:'text', placeholder:'e.g. 8.8.4.4', optional:true },
+      { id:'dhcp_start',     label:'DHCP Start',     type:'text', placeholder:'e.g. 192.168.10.100', optional:true },
+      { id:'dhcp_end',       label:'DHCP End',       type:'text', placeholder:'e.g. 192.168.10.200', optional:true },
+    ],
+    run: p => apiFetch(
+      `/api/tasks/networks?name=${enc(p.name)}&network_type=${enc(p.network_type)}&gateway=${enc(p.gateway)}&prefix_length=${enc(p.prefix_length)}&edge_gateway_id=${enc(p.edge_gateway_id||'')}&dns1=${enc(p.dns1||'')}&dns2=${enc(p.dns2||'')}&dhcp_start=${enc(p.dhcp_start||'')}&dhcp_end=${enc(p.dhcp_end||'')}`,
+      { method:'POST' }
+    ),
+    render: () => renderOk('Network created successfully.'),
+    confirm: true },
+
+  // ── Edit Network ─────────────────────────────────────────────────────────
+  { id:'edit_network', label:'Edit Network', cat:'NETWORKING', icon:'🌐',
+    desc:'Modify an existing network — gateway, prefix, DNS, or change the edge gateway connection.',
+    params:[
+      { id:'name',           label:'Network',           type:'network-select' },
+      { id:'gateway',        label:'New Gateway IP',    type:'text', placeholder:'leave blank to keep current', optional:true },
+      { id:'prefix_length',  label:'New Prefix',        type:'text', placeholder:'leave blank to keep current', optional:true },
+      { id:'dns1',           label:'DNS 1',             type:'text', placeholder:'leave blank to keep current', optional:true },
+      { id:'dns2',           label:'DNS 2',             type:'text', placeholder:'leave blank to keep current', optional:true },
+      { id:'edge_connection', label:'Edge Gateway Connection', type:'edge-connection-toggle', optional:true },
+    ],
+    run: p => apiFetch(
+      `/api/tasks/network?name=${enc(p.name)}&gateway=${enc(p.gateway||'')}&prefix_length=${enc(p.prefix_length||'0')}&dns1=${enc(p.dns1||'')}&dns2=${enc(p.dns2||'')}&disconnect_edge=${p.disconnect_edge==='true'}&connect_edge_id=${enc(p.connect_edge_id||'')}`,
+      { method:'PUT' }
+    ),
+    render: () => renderOk('Network updated successfully.'),
+    confirm: true },
+
+];
+
+const CATEGORIES = [
+  { id:'COMPUTE',    label:'Compute',    icon:'⚡' },
+  { id:'VAPP',       label:'vApp',       icon:'📦' },
+  { id:'NETWORKING', label:'Networking', icon:'🌐' },
+  { id:'GATEWAY',    label:'Gateway',    icon:'🛡' },
+  { id:'SECURITY',   label:'Security',   icon:'🔐' },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let currentTask   = null;
+let paramValues   = {};
+let taskOptions   = {};
+let aiHistory     = [];   // [{role,content}]
+let orgList       = [];
+let orgHighlight  = -1;
+let vdcList       = [];
+let vdcHighlight  = -1;
+let confirmResolve = null;
+
+// ── Auth helpers ───────────────────────────────────────────────────────────
+function authHeaders() {
+  return {
+    'Content-Type':   'application/json',
+    'X-VCD-Username': sessionStorage.getItem('vcd_username') || '',
+    'X-VCD-Password': sessionStorage.getItem('vcd_password') || '',
+    'X-VCD-Org':      sessionStorage.getItem('vcd_org')      || '',
+    'X-VCD-Org-Id':   sessionStorage.getItem('vcd_org_id')   || '',
+    'X-VCD-VDC-Id':   sessionStorage.getItem('vcd_vdc_id')   || '',
+    'X-VCD-VDC-Name': sessionStorage.getItem('vcd_vdc_name') || '',
+    'X-Anthropic-Key':sessionStorage.getItem('anthropic_key')|| '',
+  };
+}
+
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers||{}) } });
+  if (!res.ok) {
+    let msg = 'Request failed';
+    try { msg = (await res.json()).detail || msg; } catch (_) {}
+    const err = new Error(msg);
+    err.status = res.status;
+    err.detail = msg;
+    throw err;
+  }
+  return res.json();
+}
+
+// ── Login ──────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  const btn   = document.getElementById('loginBtn');
+
+  if (!user || !pass) {
+    errEl.textContent = 'Both fields are required.';
+    errEl.classList.add('visible');
+    return;
+  }
+  errEl.classList.remove('visible');
+  btn.textContent = 'Verifying…';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/vcd/verify', {
+      headers: { 'Content-Type':'application/json', 'X-VCD-Username':user, 'X-VCD-Password':pass }
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      errEl.textContent = `Auth failed: ${data.error || 'Invalid credentials'}`;
+      errEl.classList.add('visible');
+      btn.textContent = 'Continue';
+      btn.disabled = false;
+      return;
+    }
+  } catch (e) {
+    errEl.textContent = 'Cannot reach server. Is the backend running?';
+    errEl.classList.add('visible');
+    btn.textContent = 'Continue';
+    btn.disabled = false;
+    return;
+  }
+
+  sessionStorage.setItem('vcd_username', user);
+  sessionStorage.setItem('vcd_password', pass);
+  btn.textContent = 'Continue';
+  btn.disabled = false;
+  document.getElementById('loginOverlay').classList.add('hidden');
+  onLoggedIn();
+}
+
+['loginUser','loginPass'].forEach(id =>
+  document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); }));
+
+function clearSession() {
+  ['vcd_org','vcd_org_id','vcd_vdc_id','vcd_vdc_name'].forEach(k => sessionStorage.removeItem(k));
+  document.getElementById('orgInput').value = '';
+  document.getElementById('vdcInput').value = '';
+  document.getElementById('vdcGroup').style.display = 'none';
+  closeOrgDropdown(); closeVdcDropdown();
+  selectTask(null);
+}
+
+function logout() {
+  ['vcd_username','vcd_password','anthropic_key','vcd_org','vcd_org_id','vcd_vdc_id','vcd_vdc_name'].forEach(k =>
+    sessionStorage.removeItem(k));
+  document.getElementById('headerSelectors').style.display = 'none';
+  document.getElementById('envGroup').style.display = 'none';
+  document.getElementById('envSelect').innerHTML = '';
+  orgList = []; vdcList = [];
+  document.getElementById('orgInput').value = '';
+  document.getElementById('vdcInput').value = '';
+  document.getElementById('vdcGroup').style.display = 'none';
+  closeOrgDropdown(); closeVdcDropdown();
+  document.getElementById('aiToggle').checked  = false;
+  document.getElementById('aiToggle2').checked = false;
+  document.getElementById('aiStrip').style.display = 'none';
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').classList.remove('visible');
+  selectTask(null);
+}
+
+// ── Post-login init ────────────────────────────────────────────────────────
+function onLoggedIn() {
+  document.getElementById('headerSelectors').style.display = 'flex';
+  loadEnvironments();
+  loadOrgs();
+  renderSidebar();
+}
+
+// Clear org/VDC on every page load
+sessionStorage.removeItem('vcd_org');
+sessionStorage.removeItem('vcd_org_id');
+sessionStorage.removeItem('vcd_vdc_id');
+sessionStorage.removeItem('vcd_vdc_name');
+
+// Restore session if credentials exist
+(function checkSession() {
+  if (sessionStorage.getItem('vcd_username') && sessionStorage.getItem('vcd_password')) {
+    document.getElementById('loginOverlay').classList.add('hidden');
+    onLoggedIn();
+  }
+})();
+
+// ── AI Mode ────────────────────────────────────────────────────────────────
+function toggleAI(enabled) {
+  document.getElementById('aiToggle').checked  = enabled;
+  document.getElementById('aiToggle2').checked = enabled;
+  if (enabled) {
+    if (!sessionStorage.getItem('anthropic_key')) {
+      document.getElementById('apiKeyOverlay').classList.remove('hidden');
+      document.getElementById('apiKeyInput').value = '';
+      document.getElementById('apiKeyError').classList.remove('visible');
+      return;
+    }
+    document.getElementById('aiStrip').style.display = 'flex';
+  } else {
+    document.getElementById('aiStrip').style.display = 'none';
+  }
+}
+
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) {
+    document.getElementById('apiKeyError').textContent = 'API key is required.';
+    document.getElementById('apiKeyError').classList.add('visible');
+    return;
+  }
+  sessionStorage.setItem('anthropic_key', key);
+  document.getElementById('apiKeyOverlay').classList.add('hidden');
+  document.getElementById('aiStrip').style.display = 'flex';
+}
+
+function cancelApiKey() {
+  document.getElementById('apiKeyOverlay').classList.add('hidden');
+  document.getElementById('aiToggle').checked  = false;
+  document.getElementById('aiToggle2').checked = false;
+}
+
+document.getElementById('apiKeyInput').addEventListener('keydown', e => { if (e.key==='Enter') saveApiKey(); });
+
+// ── AI chat ────────────────────────────────────────────────────────────────
+async function sendAI() {
+  const ta  = document.getElementById('aiInput');
+  const text = ta.value.trim();
+  if (!text) return;
+  ta.value = '';
+
+  appendAIMsg('user', text);
+  aiHistory.push({ role:'user', content:text });
+
+  const loadEl = document.createElement('div');
+  loadEl.className = 'ai-msg assistant';
+  loadEl.innerHTML = '<div class="ai-label">Assistant</div><div class="spinner" style="margin-top:4px"></div>';
+  document.getElementById('aiHistory').append(loadEl);
+  scrollAI();
+
+  try {
+    const res = await fetch('/api/chat', {
+      method:'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ message:text, history: aiHistory.slice(0,-1) }),
+    });
+    loadEl.remove();
+    if (!res.ok) {
+      let msg = 'Error';
+      try { msg = (await res.json()).detail || msg; } catch(_) {}
+      appendAIMsg('assistant', `❌ ${msg}`);
+      return;
+    }
+    const data = await res.json();
+    appendAIMsg('assistant', data.message);
+    aiHistory.push({ role:'assistant', content:data.message });
+  } catch (e) {
+    loadEl.remove();
+    appendAIMsg('assistant', `❌ Network error: ${e.message}`);
+  }
+}
+
+function appendAIMsg(role, text) {
+  const el = document.createElement('div');
+  el.className = `ai-msg ${role}`;
+  el.innerHTML = `<div class="ai-label">${role === 'user' ? 'You' : 'Assistant'}</div><div>${escHtml(text)}</div>`;
+  document.getElementById('aiHistory').append(el);
+  scrollAI();
+}
+
+function scrollAI() {
+  const h = document.getElementById('aiHistory');
+  h.scrollTop = h.scrollHeight;
+}
+
+document.getElementById('aiInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAI(); }
+});
+
+// ── Confirm modal ──────────────────────────────────────────────────────────
+function showConfirm(title, msg) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent   = msg;
+  document.getElementById('confirmOverlay').classList.remove('hidden');
+  return new Promise(resolve => { confirmResolve = resolve; });
+}
+
+window.confirmResolve = function(val) {
+  document.getElementById('confirmOverlay').classList.add('hidden');
+  if (confirmResolve) { confirmResolve(val); confirmResolve = null; }
+};
+
+// ── Environment selector ───────────────────────────────────────────────────
+async function loadEnvironments() {
+  try {
+    const envs = await apiFetch('/api/vcd/environments');
+    if (!envs.length) return;
+    const sel = document.getElementById('envSelect');
+    sel.innerHTML = '';
+    envs.forEach(e => {
+      const o = document.createElement('option');
+      o.value = e.name; o.textContent = e.name;
+      sel.appendChild(o);
+    });
+    if (envs.length) sel.value = envs[0].name;
+    document.getElementById('envGroup').style.display = 'flex';
+  } catch (_) {}
+}
+
+async function switchEnvironment(name) {
+  if (!name) return;
+  try {
+    await apiFetch('/api/vcd/environments/select', { method:'POST', body: JSON.stringify({ name }) });
+    orgList = []; vdcList = [];
+    document.getElementById('orgInput').value = '';
+    document.getElementById('vdcInput').value = '';
+    document.getElementById('vdcGroup').style.display = 'none';
+    sessionStorage.removeItem('vcd_vdc_id');
+    loadOrgs();
+  } catch (e) { console.error(e); }
+}
+
+// ── Org autocomplete ───────────────────────────────────────────────────────
+async function loadOrgs() {
+  try {
+    const orgs = await apiFetch('/api/vcd/orgs');
+    orgList = orgs.map(o => ({ id:o.id, name:o.name }));
+  } catch (_) {}
+}
+
+function renderOrgDropdown(q) {
+  const dd = document.getElementById('orgDropdown');
+  const matches = q ? orgList.filter(o => o.name.toLowerCase().includes(q.toLowerCase())) : orgList;
+  if (!matches.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = matches.map(o => {
+    const i = o.name.toLowerCase().indexOf(q.toLowerCase());
+    const lbl = q && i !== -1
+      ? o.name.slice(0,i) + '<strong>' + o.name.slice(i,i+q.length) + '</strong>' + o.name.slice(i+q.length)
+      : o.name;
+    return `<div class="autocomplete-item" data-value="${o.name}" data-id="${o.id}">${lbl}</div>`;
+  }).join('');
+  dd.classList.add('open');
+  orgHighlight = -1;
+}
+
+function closeOrgDropdown() { document.getElementById('orgDropdown').classList.remove('open'); orgHighlight = -1; }
+
+function switchOrg(name, id) {
+  if (!name) return;
+  sessionStorage.setItem('vcd_org', name);
+  sessionStorage.setItem('vcd_org_id', id || '');
+  sessionStorage.removeItem('vcd_vdc_id');
+  document.getElementById('orgInput').value = name;
+  closeOrgDropdown();
+  vdcList = [];
+  document.getElementById('vdcInput').value = '';
+  document.getElementById('vdcGroup').style.display = 'none';
+  loadVdcs();
+}
+
+const orgInput = document.getElementById('orgInput');
+orgInput.addEventListener('focus', () => renderOrgDropdown(orgInput.value));
+orgInput.addEventListener('input', () => { orgHighlight=-1; renderOrgDropdown(orgInput.value); });
+orgInput.addEventListener('keydown', e => {
+  const items = document.getElementById('orgDropdown').querySelectorAll('.autocomplete-item');
+  if (e.key==='ArrowDown') { e.preventDefault(); orgHighlight=Math.min(orgHighlight+1,items.length-1); items.forEach((el,i)=>el.classList.toggle('highlighted',i===orgHighlight)); }
+  else if (e.key==='ArrowUp') { e.preventDefault(); orgHighlight=Math.max(orgHighlight-1,-1); items.forEach((el,i)=>el.classList.toggle('highlighted',i===orgHighlight)); }
+  else if (e.key==='Enter') { e.preventDefault(); const h=document.getElementById('orgDropdown').querySelector('.highlighted'); if(h) switchOrg(h.dataset.value, h.dataset.id); }
+  else if (e.key==='Escape') closeOrgDropdown();
+});
+document.getElementById('orgDropdown').addEventListener('click', e => {
+  const item = e.target.closest('.autocomplete-item');
+  if (item) switchOrg(item.dataset.value, item.dataset.id);
+});
+
+// ── VDC autocomplete ───────────────────────────────────────────────────────
+async function loadVdcs() {
+  try {
+    const vdcs = await apiFetch('/api/vcd/vdcs');
+    if (!vdcs.length) return;
+    const activeOrg = (sessionStorage.getItem('vcd_org') || '').toLowerCase();
+    const filtered = activeOrg ? vdcs.filter(v => !v.org || v.org.toLowerCase() === activeOrg) : vdcs;
+    vdcList = (filtered.length ? filtered : vdcs).map(v => ({ id:v.id, name:v.name }));
+    document.getElementById('vdcGroup').style.display = 'flex';
+  } catch (_) {}
+}
+
+function renderVdcDropdown(q) {
+  const dd = document.getElementById('vdcDropdown');
+  const matches = q ? vdcList.filter(v => v.name.toLowerCase().includes(q.toLowerCase())) : vdcList;
+  if (!matches.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = matches.map(v => {
+    const i = v.name.toLowerCase().indexOf(q.toLowerCase());
+    const lbl = q && i !== -1
+      ? v.name.slice(0,i) + '<strong>' + v.name.slice(i,i+q.length) + '</strong>' + v.name.slice(i+q.length)
+      : v.name;
+    return `<div class="autocomplete-item" data-id="${v.id}" data-name="${v.name}">${lbl}</div>`;
+  }).join('');
+  dd.classList.add('open');
+  vdcHighlight = -1;
+}
+
+function closeVdcDropdown() { document.getElementById('vdcDropdown').classList.remove('open'); vdcHighlight = -1; }
+
+function switchVdc(id, name) {
+  if (!id) return;
+  sessionStorage.setItem('vcd_vdc_id', id);
+  sessionStorage.setItem('vcd_vdc_name', name);
+  document.getElementById('vdcInput').value = name;
+  closeVdcDropdown();
+}
+
+const vdcInput = document.getElementById('vdcInput');
+vdcInput.addEventListener('focus', () => renderVdcDropdown(vdcInput.value));
+vdcInput.addEventListener('input', () => { vdcHighlight=-1; renderVdcDropdown(vdcInput.value); });
+vdcInput.addEventListener('keydown', e => {
+  const items = document.getElementById('vdcDropdown').querySelectorAll('.autocomplete-item');
+  if (e.key==='ArrowDown') { e.preventDefault(); vdcHighlight=Math.min(vdcHighlight+1,items.length-1); items.forEach((el,i)=>el.classList.toggle('highlighted',i===vdcHighlight)); }
+  else if (e.key==='ArrowUp') { e.preventDefault(); vdcHighlight=Math.max(vdcHighlight-1,-1); items.forEach((el,i)=>el.classList.toggle('highlighted',i===vdcHighlight)); }
+  else if (e.key==='Enter') { e.preventDefault(); const h=document.getElementById('vdcDropdown').querySelector('.highlighted'); if(h) switchVdc(h.dataset.id, h.dataset.name); }
+  else if (e.key==='Escape') closeVdcDropdown();
+});
+document.getElementById('vdcDropdown').addEventListener('click', e => {
+  const item = e.target.closest('.autocomplete-item');
+  if (item) switchVdc(item.dataset.id, item.dataset.name);
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#orgInput') && !e.target.closest('#orgDropdown')) closeOrgDropdown();
+  if (!e.target.closest('#vdcInput') && !e.target.closest('#vdcDropdown')) closeVdcDropdown();
+});
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const container = document.getElementById('sidebarTasks');
+  container.innerHTML = CATEGORIES.map(cat => {
+    const items = TASKS.filter(t => t.cat === cat.id);
+    return `
+      <div class="task-group collapsed" data-cat="${cat.id}">
+        <div class="task-group-header" onclick="toggleCategory('${cat.id}')">
+          <span class="task-group-icon">${cat.icon}</span>
+          <span>${cat.label}</span>
+          <span class="task-group-chevron">▼</span>
+        </div>
+        ${items.map(t => `
+          <div class="task-item" data-id="${t.id}" onclick="selectTask('${t.id}')">${t.label}</div>
+        `).join('')}
+      </div>`;
+  }).join('');
+}
+
+function toggleCategory(catId) {
+  const group = document.querySelector(`.task-group[data-cat="${catId}"]`);
+  if (group) group.classList.toggle('collapsed');
+}
+
+function filterTasks(q) {
+  const query = q.toLowerCase().trim();
+  document.querySelectorAll('.task-group').forEach(group => {
+    let anyVisible = false;
+    group.querySelectorAll('.task-item').forEach(item => {
+      const match = !query || item.textContent.toLowerCase().includes(query);
+      item.classList.toggle('hidden', !match);
+      if (match) anyVisible = true;
+    });
+    group.classList.toggle('hidden', !anyVisible);
+    // Auto-expand when filtering so results are visible
+    if (query && anyVisible) group.classList.remove('collapsed');
+  });
+}
+
+// ── Task selection ─────────────────────────────────────────────────────────
+async function selectTask(taskId) {
+  currentTask = taskId ? TASKS.find(t => t.id === taskId) : null;
+
+  document.querySelectorAll('.task-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.id === taskId));
+
+  const empty = document.getElementById('emptyState');
+  const view  = document.getElementById('taskView');
+
+  if (!currentTask) {
+    empty.style.display = 'flex';
+    view.style.display  = 'none';
+    return;
+  }
+
+  empty.style.display = 'none';
+  view.style.display  = 'block';
+  document.getElementById('taskTitle').textContent = currentTask.label;
+  document.getElementById('taskDesc').innerHTML    = currentTask.desc;
+  document.getElementById('resultArea').innerHTML  = '';
+  document.getElementById('paramForm').innerHTML   = '<div class="result-loading"><div class="spinner"></div><span>Loading…</span></div>';
+  paramValues = {};
+  taskOptions = {};
+
+  if (!sessionStorage.getItem('vcd_org')) {
+    document.getElementById('paramForm').innerHTML = '';
+    document.getElementById('resultArea').innerHTML =
+      '<div class="result-error">⚠ Select an organisation from the top bar before using this task.</div>';
+    return;
+  }
+
+  await loadParamOptions(currentTask);
+}
+
+async function loadParamOptions(task) {
+  for (const p of task.params) {
+    try {
+      if (p.type === 'vm-select') {
+        const vms = await apiFetch('/api/tasks/vms');
+        taskOptions[p.id] = vms.map(v => ({ value:v.name, label:`${v.name} — ${v.status||'?'}` }));
+      } else if (p.type === 'vapp-select') {
+        const vapps = await apiFetch('/api/tasks/vapps');
+        taskOptions[p.id] = vapps.map(v => ({ value:v.name, label:`${v.name} — ${v.status||'?'}` }));
+      } else if (p.type === 'network-select') {
+        const nets = await apiFetch('/api/tasks/networks');
+        const noneOpt = p.allowNone ? [{ value:'', label:'None' }] : [];
+        taskOptions[p.id] = [...noneOpt, ...nets.map(n => ({ value:n.name, label:n.name }))];
+      } else if (p.type === 'edge-select') {
+        const gws = await apiFetch('/api/tasks/edge-gateways');
+        taskOptions[p.id] = gws.map(g => ({
+          value: g.id,
+          label: `${g.name} [${g.backing_type||'NSX-T'}] — ${g.status||'?'}`,
+        }));
+      } else if (p.type === 'vdc-group-select') {
+        const groups = await apiFetch('/api/tasks/vdc-groups');
+        taskOptions[p.id] = groups.map(g => ({ value:g.id, label:g.name }));
+      } else if (p.type === 'app-profile-select') {
+        const gwParam = currentTask.params.find(q => q.type === 'edge-select');
+        const gwId = gwParam ? paramValues[gwParam.id] : '';
+        const profiles = gwId ? await apiFetch(`/api/tasks/app-port-profiles?gateway_id=${enc(gwId)}`) : [];
+        taskOptions[p.id] = [{ value:'', label:'— custom (use protocol/ports below) —' },
+          ...profiles.map(a => ({ value:a.id, label:`${a.name}${a.scope==='SYSTEM'?' ':'  '}` }))];
+      } else if (p.type === 'vapp-or-new-select') {
+        const vapps = await apiFetch('/api/tasks/vapps');
+        taskOptions[p.id] = [
+          { value:'__new__', label:'— New vApp —' },
+          ...vapps.map(v => ({ value:v.name, label:v.name })),
+        ];
+        paramValues[p.id] = '__new__';
+      } else if (p.type === 'vm-count-select') {
+        taskOptions[p.id] = [1,2,3,4,5].map(n => ({ value:String(n), label:String(n) }));
+        paramValues[p.id] = '1';
+      } else if (p.type === 'multi-vm-banner') {
+        taskOptions[p.id] = null;
+      } else if (p.type === 'catalog-select') {
+        const cats = await apiFetch('/api/tasks/catalogs');
+        taskOptions[p.id] = cats.map(c => ({ value:c.name, label:c.name }));
+      } else if (p.type === 'template-select') {
+        taskOptions[p.id] = [{ value:'', label:'— select a catalog first —' }];
+      } else if (p.type === 'disk-select') {
+        const vmParam = task.params.find(q => q.type === 'vm-select');
+        const preVm = vmParam ? paramValues[vmParam.id] : '';
+        if (preVm) {
+          const disks = await apiFetch(`/api/tasks/vm/disks?vm_name=${enc(preVm)}`);
+          taskOptions[p.id] = disks.map((d, i) => ({
+            value: String(i + 1),
+            label: `Disk ${i+1} — ${d.name || `Hard disk ${i+1}`}${d.size_mb ? ` (${Math.round(d.size_mb/1024)} GB)` : ''}`,
+          }));
+        } else {
+          taskOptions[p.id] = [{ value:'', label:'— select a VM first —' }];
+        }
+      } else if (p.type === 'template-preview') {
+        taskOptions[p.id] = null;
+      } else if (p.type === 'compute-mode-radio') {
+        paramValues[p.id] = 'all_same';
+        taskOptions[p.id] = null;
+      } else if (p.type === 'per-vm-compute-grid') {
+        taskOptions[p.id] = null;
+      } else if (p.type === 'vm-multi-select') {
+        const vms = await apiFetch('/api/tasks/vms');
+        taskOptions[p.id] = vms.map(v => ({ value:v.name, label:v.name, status:v.status||'' }));
+        paramValues[p.id] = [];
+      } else if (p.type === 'edge-connection-toggle') {
+        taskOptions[p.id] = null;
+        paramValues['connect_edge_id'] = '';
+        paramValues['disconnect_edge'] = 'false';
+      } else if (p.type === 'select') {
+        taskOptions[p.id] = p.options;
+      } else if (p.type === 'text') {
+        taskOptions[p.id] = null;  // no options; renders as free-text input
+      }
+      // Auto-select if single option (skip for allowNone params — user must choose explicitly)
+      if (taskOptions[p.id]?.length === 1 && !p.allowNone) {
+        paramValues[p.id] = taskOptions[p.id][0].value;
+        // If this VM was auto-selected and the task has cpu/memory_gb fields, pre-populate them
+        if (p.type === 'vm-select' && task.params.some(q => q.id === 'cpu' || q.id === 'memory_gb')) {
+          try {
+            const vm = await apiFetch(`/api/tasks/vm?name=${enc(paramValues[p.id])}`);
+            if (vm.cpu)       paramValues['cpu']       = String(vm.cpu);
+            if (vm.memory_mb) paramValues['memory_gb'] = String(Math.round(vm.memory_mb / 1024));
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      taskOptions[p.id] = [];
+    }
+  }
+  renderParamForm(task);
+  // Post-render: populate edge connection toggle if task has one and a network is already selected
+  const ecParam = task.params.find(p => p.type === 'edge-connection-toggle');
+  if (ecParam) {
+    const netParam = task.params.find(p => p.type === 'network-select');
+    const netName = netParam ? paramValues[netParam.id] : '';
+    if (netName) loadEdgeConnectionToggle(netName);
+  }
+}
+
+function anyOrTextToggle(paramId, mode) {
+  paramValues[paramId] = mode === 'any' ? 'ANY' : '';
+  const inp = document.getElementById('aot_' + paramId);
+  if (inp) { inp.style.display = mode === 'any' ? 'none' : ''; inp.value = ''; }
+}
+
+let _templateSpecMap = {};
+
+async function loadTemplatesForCatalog(catalogName) {
+  if (!currentTask) return;
+  const tmplParam = currentTask.params.find(p => p.type === 'template-select');
+  if (!tmplParam) return;
+  const sel = document.getElementById('param_' + tmplParam.id);
+  if (!sel) return;
+  sel.disabled = true;
+  sel.innerHTML = '<option value="">Loading…</option>';
+  paramValues[tmplParam.id] = '';
+  _templateSpecMap = {};
+  const specBox = document.getElementById('templateSpecBox');
+  if (specBox) specBox.style.display = 'none';
+  try {
+    const templates = catalogName
+      ? await apiFetch(`/api/tasks/catalog-templates?catalog_name=${enc(catalogName)}`)
+      : [];
+    templates.forEach(t => { _templateSpecMap[t.name] = t; });
+    taskOptions[tmplParam.id] = templates.map(t => ({ value:t.name, label:t.name }));
+    sel.disabled = !templates.length;
+    sel.innerHTML = `<option value="">— select template —</option>` +
+      templates.map(t => `<option value="${escHtml(t.name)}">${escHtml(t.name)}</option>`).join('');
+  } catch (_) {
+    sel.innerHTML = '<option value="">Failed to load templates</option>';
+  }
+}
+
+function onTemplateSelect(name) {
+  paramValues['template_name'] = name;
+  const box = document.getElementById('templateSpecBox');
+  if (!box) return;
+  if (!name) { box.style.display = 'none'; return; }
+  const spec = _templateSpecMap[name];
+  if (!spec) { box.style.display = 'none'; return; }
+  const parts = [];
+  if (spec.cpu)       parts.push(`${spec.cpu} vCPU`);
+  if (spec.memory_mb) parts.push(`${Math.round(spec.memory_mb/1024)} GB RAM`);
+  box.style.display = '';
+  box.textContent = parts.length ? `Template defaults: ${parts.join(' · ')}` : 'Template specs not available from API.';
+}
+
+async function loadDisksForVm(vmName) {
+  if (!currentTask) return;
+  const diskParam = currentTask.params.find(p => p.type === 'disk-select');
+  if (!diskParam) return;
+  const sel = document.getElementById('param_' + diskParam.id);
+  if (!sel) return;
+  sel.disabled = true;
+  sel.innerHTML = '<option value="">Loading…</option>';
+  paramValues[diskParam.id] = '';
+  try {
+    const disks = vmName ? await apiFetch(`/api/tasks/vm/disks?vm_name=${enc(vmName)}`) : [];
+    sel.disabled = !disks.length;
+    sel.innerHTML = `<option value="">— select disk —</option>` + disks.map((d, i) => {
+      const sizeLabel = d.size_mb ? ` (${Math.round(d.size_mb / 1024)} GB)` : '';
+      const name = d.name || `Hard disk ${i + 1}`;
+      return `<option value="${i + 1}">Disk ${i + 1} — ${escHtml(name)}${escHtml(sizeLabel)}</option>`;
+    }).join('');
+  } catch (_) {
+    sel.innerHTML = '<option value="">Failed to load disks</option>';
+  }
+}
+
+function onVappTargetChange(val) {
+  const row = document.getElementById('vmrow_new_vapp_name');
+  if (row) row.style.display = val === '__new__' ? '' : 'none';
+  if (val !== '__new__') paramValues['new_vapp_name'] = '';
+}
+
+function onVmCountChange(count) {
+  const n = parseInt(count) || 1;
+  for (let i = 2; i <= 5; i++) {
+    const row = document.getElementById(`vmrow_vm_name_${i}`);
+    if (row) row.style.display = i <= n ? '' : 'none';
+    if (i > n) paramValues[`vm_name_${i}`] = '';
+  }
+  const banner = document.getElementById('multiVmBanner');
+  if (banner) banner.style.display = n > 1 ? '' : 'none';
+  if (paramValues.compute_mode === 'per_vm') refreshPerVmComputeGrid();
+}
+
+function onComputeModeChange(mode) {
+  paramValues['compute_mode'] = mode;
+  if (!currentTask) return;
+  currentTask.params
+    .filter(p => p.computeGroup === 'all_same' && p.wrapId)
+    .forEach(p => {
+      const el = document.getElementById(p.wrapId);
+      if (el) el.style.display = mode === 'all_same' ? '' : 'none';
+    });
+  const pgrid = document.getElementById('perVmComputeGrid');
+  if (pgrid) pgrid.style.display = mode === 'per_vm' ? '' : 'none';
+  if (mode === 'per_vm') refreshPerVmComputeGrid();
+}
+
+function refreshPerVmComputeGrid() {
+  const grid = document.getElementById('perVmComputeGrid');
+  if (!grid) return;
+  const n = parseInt(paramValues['vm_count'] || '1');
+  let html = `<div style="font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:6px">Per-VM Compute</div>
+    <table style="border-collapse:collapse;font-size:0.78rem;width:100%">
+      <thead><tr>
+        <th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em">VM Name</th>
+        <th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em">CPU</th>
+        <th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em">RAM (GB)</th>
+        <th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em">Disk 1 (GB)</th>
+        <th style="text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em">Disk 2 (GB)</th>
+      </tr></thead><tbody>`;
+  const inpStyle = 'width:62px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px;font-size:0.78rem;outline:none';
+  for (let i = 1; i <= n; i++) {
+    const vmName = paramValues[`vm_name_${i}`] || `VM ${i}`;
+    html += `<tr>
+      <td style="padding:5px 8px;border-bottom:1px solid rgba(48,54,61,0.4);color:var(--vcd)">${escHtml(vmName)}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid rgba(48,54,61,0.4)"><input type="text" style="${inpStyle}" placeholder="default" value="${escHtml(paramValues[`vm_cpu_${i}`]||'')}" oninput="paramValues['vm_cpu_${i}']=this.value"/></td>
+      <td style="padding:5px 8px;border-bottom:1px solid rgba(48,54,61,0.4)"><input type="text" style="${inpStyle}" placeholder="default" value="${escHtml(paramValues[`vm_mem_gb_${i}`]||'')}" oninput="paramValues['vm_mem_gb_${i}']=this.value"/></td>
+      <td style="padding:5px 8px;border-bottom:1px solid rgba(48,54,61,0.4)"><input type="text" style="${inpStyle}" placeholder="default" value="${escHtml(paramValues[`vm_disk1_gb_${i}`]||'')}" oninput="paramValues['vm_disk1_gb_${i}']=this.value"/></td>
+      <td style="padding:5px 8px;border-bottom:1px solid rgba(48,54,61,0.4)"><input type="text" style="${inpStyle}" placeholder="default" value="${escHtml(paramValues[`vm_disk2_gb_${i}`]||'')}" oninput="paramValues['vm_disk2_gb_${i}']=this.value"/></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  grid.innerHTML = html;
+}
+
+function toggleVmMultiSelect(name, checked) {
+  const arr = paramValues['selected_vms'] || [];
+  if (checked) { if (!arr.includes(name)) arr.push(name); }
+  else { const i = arr.indexOf(name); if (i >= 0) arr.splice(i, 1); }
+  paramValues['selected_vms'] = arr;
+  const cnt = document.getElementById('vmMultiCount');
+  if (cnt) cnt.textContent = `${arr.length} selected`;
+}
+
+function selectAllVmsMulti(select) {
+  const list = document.getElementById('vmMultiList');
+  if (!list) return;
+  list.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.checked = select;
+    toggleVmMultiSelect(cb.value, select);
+  });
+}
+
+function filterVmMultiSelect(q) {
+  const list = document.getElementById('vmMultiList');
+  if (!list) return;
+  const ql = q.toLowerCase();
+  list.querySelectorAll('label').forEach(row => {
+    const name = row.querySelector('input[type=checkbox]')?.value || '';
+    row.style.display = !q || name.toLowerCase().includes(ql) ? '' : 'none';
+  });
+}
+
+async function loadEdgeConnectionToggle(networkName) {
+  const widget = document.getElementById('edgeConnectionWidget');
+  if (!widget) return;
+  paramValues['connect_edge_id'] = '';
+  paramValues['disconnect_edge'] = 'false';
+  if (!networkName) {
+    widget.innerHTML = '<span style="color:var(--muted);font-size:0.8rem">Select a network first.</span>';
+    return;
+  }
+  widget.innerHTML = '<span style="color:var(--muted);font-size:0.8rem">Loading…</span>';
+  try {
+    const [netDetails, gws] = await Promise.all([
+      apiFetch(`/api/tasks/network?name=${enc(networkName)}`),
+      apiFetch('/api/tasks/edge-gateways'),
+    ]);
+    const connectedId = netDetails.connected_edge_id || '';
+    const gwName = netDetails.connected_edge_name || (gws.find(g => g.id === connectedId)?.name) || connectedId;
+    if (connectedId) {
+      paramValues['connect_edge_id'] = '';
+      paramValues['disconnect_edge'] = 'false';
+      widget.innerHTML = `
+        <div style="font-size:0.78rem;margin-bottom:8px">
+          Currently connected to <strong>${escHtml(gwName)}</strong>.
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem">
+          <input type="checkbox" onchange="paramValues['disconnect_edge']=this.checked?'true':'false'" />
+          Isolate — disconnect from edge gateway
+        </label>`;
+    } else {
+      const gwOpts = `<option value="">— keep isolated —</option>` +
+        gws.map(g => `<option value="${escHtml(g.id)}">${escHtml(g.name)} [${escHtml(g.backing_type||'NSX-T')}]</option>`).join('');
+      paramValues['connect_edge_id'] = '';
+      paramValues['disconnect_edge'] = 'false';
+      widget.innerHTML = `
+        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:8px">
+          Currently isolated — not connected to an edge gateway.
+        </div>
+        <select onchange="paramValues['connect_edge_id']=this.value">
+          ${gwOpts}
+        </select>`;
+    }
+  } catch (_) {
+    widget.innerHTML = '<span style="color:var(--fail);font-size:0.8rem">Failed to load connection status.</span>';
+  }
+}
+
+async function loadVmComputeDefaults(vmName) {
+  if (!vmName) return;
+  try {
+    const vm = await apiFetch(`/api/tasks/vm?name=${enc(vmName)}`);
+    if (vm.cpu) {
+      paramValues['cpu'] = String(vm.cpu);
+      const el = document.getElementById('param_text_cpu');
+      if (el) el.value = vm.cpu;
+    }
+    if (vm.memory_mb) {
+      const gb = Math.round(vm.memory_mb / 1024);
+      paramValues['memory_gb'] = String(gb);
+      const el = document.getElementById('param_text_memory_gb');
+      if (el) el.value = gb;
+    }
+  } catch (_) {}
+}
+
+
+function renderParamForm(task) {
+  const form = document.getElementById('paramForm');
+  let html = '';
+  for (const p of task.params) {
+    if (p.type === 'multi-vm-banner') {
+      html += `<div id="multiVmBanner" style="display:none;flex-basis:100%;width:100%;margin-bottom:4px;padding:10px 14px;border-radius:6px;background:rgba(248,81,73,0.10);border:1px solid rgba(248,81,73,0.35);color:var(--text);font-size:0.8rem;">
+        <strong>⚠ Multi-VM deploy:</strong> If a VM fails mid-deploy, partial resources may remain in the vApp.
+        Monitor progress in the VCD UI and remove any failed VMs manually if needed.
+      </div>`;
+      continue;
+    }
+
+    if (p.type === 'template-preview') {
+      html += `<div id="templateSpecBox" style="display:none;flex-basis:100%;width:100%;padding:8px 12px;border-radius:6px;background:rgba(88,166,255,0.07);border:1px solid rgba(88,166,255,0.2);font-size:0.78rem;color:var(--vcd);margin-bottom:2px"></div>`;
+      continue;
+    }
+
+    if (p.type === 'compute-mode-radio') {
+      html += `<div class="param-field" style="flex-basis:100%;width:100%">
+        <label>${p.label}</label>
+        <div style="display:flex;gap:20px;margin-top:6px;font-size:0.82rem">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="compute_mode_radio" value="all_same" ${paramValues[p.id]!=='per_vm'?'checked':''}
+                   onchange="onComputeModeChange('all_same')" /> Same for all VMs
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="compute_mode_radio" value="per_vm" ${paramValues[p.id]==='per_vm'?'checked':''}
+                   onchange="onComputeModeChange('per_vm')" /> Different per VM
+          </label>
+        </div>
+      </div>`;
+      continue;
+    }
+
+    if (p.type === 'per-vm-compute-grid') {
+      html += `<div id="perVmComputeGrid" style="display:none;flex-basis:100%;width:100%;margin-bottom:8px"></div>`;
+      continue;
+    }
+
+    if (p.type === 'vm-multi-select') {
+      const vms = taskOptions[p.id] || [];
+      const btnStyle = 'background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--muted);cursor:pointer;font-size:0.72rem;padding:3px 10px';
+      html += `<div class="param-field" style="min-width:100%;flex-basis:100%;width:100%">
+        <label>${p.label}</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+          <input type="text" placeholder="Filter VMs…" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:4px 8px;font-size:0.78rem;outline:none" oninput="filterVmMultiSelect(this.value)" />
+          <button onclick="selectAllVmsMulti(true)" style="${btnStyle}">All</button>
+          <button onclick="selectAllVmsMulti(false)" style="${btnStyle}">None</button>
+        </div>
+        <div id="vmMultiList" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:var(--surface2)">
+          ${vms.map(v => {
+            const s = (v.status||'').toUpperCase();
+            const col = s==='POWERED_ON'?'var(--ok)':s==='POWERED_OFF'?'var(--fail)':'var(--muted)';
+            return `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-bottom:1px solid rgba(48,54,61,0.4)">
+              <input type="checkbox" value="${escHtml(v.value)}" onchange="toggleVmMultiSelect('${escHtml(v.value)}',this.checked)" />
+              <span style="flex:1;font-size:0.8rem">${escHtml(v.value)}</span>
+              <span style="font-size:0.65rem;color:${col}">${escHtml(v.status||'?')}</span>
+            </label>`;
+          }).join('')}
+        </div>
+        <div id="vmMultiCount" style="font-size:0.72rem;color:var(--muted);margin-top:4px">0 selected</div>
+      </div>`;
+      continue;
+    }
+
+    if (p.type === 'edge-connection-toggle') {
+      html += `<div class="param-field">
+        <label>${p.label || 'Edge Gateway Connection'}</label>
+        <div id="edgeConnectionWidget"><span style="color:var(--muted);font-size:0.8rem">Select a network first.</span></div>
+      </div>`;
+      continue;
+    }
+
+    // Determine wrapper attributes for dynamically shown/hidden fields
+    const wrapId    = p.wrapId    ? `id="${p.wrapId}"` : '';
+    const wrapStyle = p.wrapHidden ? 'style="display:none"' : '';
+
+    if (p.type === 'any-or-text') {
+      const isAny = !paramValues[p.id] || paramValues[p.id] === 'ANY';
+      html += `<div class="param-field" ${wrapId} ${wrapStyle}>
+        <label>${p.label}</label>
+        <select onchange="anyOrTextToggle('${p.id}', this.value)">
+          <option value="any" ${isAny?'selected':''}>Any</option>
+          <option value="custom" ${!isAny?'selected':''}>Specific IPs / CIDRs</option>
+        </select>
+        <input id="aot_${p.id}" type="text" placeholder="${p.placeholder||'e.g. 10.0.0.0/8, 192.168.1.5'}"
+               style="margin-top:6px;${isAny?'display:none':''}"
+               value="${escHtml(!isAny ? (paramValues[p.id]||'') : '')}"
+               oninput="paramValues['${p.id}']=this.value" />
+      </div>`;
+      if (isAny) paramValues[p.id] = 'ANY';
+    } else if (p.type === 'text') {
+      const extraInput = /^vm_name_\d+$/.test(p.id) ? "; if(paramValues.compute_mode==='per_vm') refreshPerVmComputeGrid()" : '';
+      html += `<div class="param-field" ${wrapId} ${wrapStyle}>
+        <label>${p.label}</label>
+        <input id="param_text_${p.id}" type="text" placeholder="${p.placeholder || ''}"
+               value="${escHtml(paramValues[p.id] || '')}"
+               oninput="paramValues['${p.id}']=this.value${extraInput}" />
+      </div>`;
+    } else {
+      const opts = taskOptions[p.id] || [];
+      const noAutoCollapse = p.type === 'vm-select';
+      const auto = opts.length === 1 && paramValues[p.id] && !p.allowNone && !noAutoCollapse;
+      if (auto) {
+        html += `<div class="param-auto" ${wrapId} ${wrapStyle}>
+          <div class="param-lbl">${p.label}</div>
+          <div class="param-val">${opts[0].label}</div>
+        </div>`;
+      } else {
+        const onChange = p.type === 'catalog-select'
+          ? `paramValues['${p.id}']=this.value; loadTemplatesForCatalog(this.value)`
+          : (p.type === 'vm-select' && task.params.some(q => q.type === 'disk-select'))
+          ? `paramValues['${p.id}']=this.value; loadDisksForVm(this.value)`
+          : (p.type === 'vm-select' && task.params.some(q => q.id === 'cpu' || q.id === 'memory_gb'))
+          ? `paramValues['${p.id}']=this.value; loadVmComputeDefaults(this.value)`
+          : p.type === 'vapp-or-new-select'
+          ? `paramValues['${p.id}']=this.value; onVappTargetChange(this.value)`
+          : p.type === 'vm-count-select'
+          ? `paramValues['${p.id}']=this.value; onVmCountChange(this.value)`
+          : p.type === 'template-select'
+          ? `paramValues['${p.id}']=this.value; onTemplateSelect(this.value)`
+          : (p.type === 'network-select' && task.params.some(q => q.type === 'edge-connection-toggle'))
+          ? `paramValues['${p.id}']=this.value; loadEdgeConnectionToggle(this.value)`
+          : `paramValues['${p.id}']=this.value`;
+        html += `<div class="param-field" ${wrapId} ${wrapStyle}>
+          <label>${p.label}</label>
+          <select id="param_${p.id}" onchange="${onChange}" ${!opts.length?'disabled':''}>
+            <option value="">— select —</option>
+            ${opts.map(o=>`<option value="${o.value}" ${paramValues[p.id]===o.value?'selected':''}>${o.label}</option>`).join('')}
+          </select>
+        </div>`;
+      }
+    }
+  }
+  const dangerClass = task.confirm ? 'danger' : '';
+  html += `<button class="run-btn ${dangerClass}" onclick="runTask()">${task.confirm ? '⚠ ' : ''}Run</button>`;
+  form.innerHTML = html;
+}
+
+// ── Run task ───────────────────────────────────────────────────────────────
+async function runTask() {
+  if (!currentTask) return;
+
+  for (const p of currentTask.params) {
+    if (p.optional) continue;
+    if (!paramValues[p.id] && paramValues[p.id] !== false) {
+      showResultError(`Please fill in "${p.label}" before running.`);
+      return;
+    }
+  }
+
+  if (currentTask.validate) {
+    const err = currentTask.validate(paramValues);
+    if (err) { showResultError(err); return; }
+  }
+
+  if (currentTask.confirm) {
+    const msg = currentTask.confirmMsg
+      ? currentTask.confirmMsg(paramValues)
+      : `Are you sure you want to run "${currentTask.label}"? This will affect live infrastructure.`;
+    const ok = await showConfirm(currentTask.label, msg);
+    if (!ok) return;
+  }
+
+  document.getElementById('confirmOverlay').classList.add('hidden');
+  showResultLoading();
+
+  try {
+    const data = await currentTask.run(paramValues);
+    const html  = currentTask.render(data);
+    const count = Array.isArray(data) ? `${data.length} result${data.length!==1?'s':''}` : '';
+    const exportBtn = (currentTask.exportable && Array.isArray(data) && data.length > 0)
+      ? `<button class="btn-export-csv" onclick="exportTableAsCsv('${currentTask.label.replace(/'/g, "\\'")}')">⬇ Export CSV</button>`
+      : '';
+    document.getElementById('resultArea').innerHTML =
+      (count || exportBtn ? `<div class="result-meta">${count}${exportBtn}</div>` : '') + html;
+  } catch (e) {
+    showResultError(e.message);
+  }
+}
+
+function showResultLoading() {
+  document.getElementById('resultArea').innerHTML =
+    '<div class="result-loading"><div class="spinner"></div><span>Loading…</span></div>';
+}
+
+function showResultError(msg) {
+  document.getElementById('resultArea').innerHTML =
+    `<div class="result-error">❌ ${escHtml(msg)}</div>`;
+}
+
+function exportTableAsCsv(title) {
+  const table = document.querySelector('#resultArea .result-table');
+  if (!table) return;
+  const rows = [];
+  rows.push([...table.querySelectorAll('thead th')].map(th => th.textContent.trim()));
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    rows.push([...tr.querySelectorAll('td')].map(td => td.textContent.trim()));
+  });
+  const csv = '﻿' + rows.map(row =>
+    row.map(cell => {
+      const s = cell.replace(/"/g, '""');
+      return /[",\n\r]/.test(s) ? `"${s}"` : s;
+    }).join(',')
+  ).join('\r\n');
+  const org = sessionStorage.getItem('vcd_org') || '';
+  const vdc = sessionStorage.getItem('vcd_vdc_name') || '';
+  const filename = [title, org, vdc, new Date().toISOString().slice(0,10)]
+    .filter(Boolean).join('_').replace(/\s+/g, '-') + '.csv';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.style.display = 'none';
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Render helpers ─────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function spill(status) {
+  const s = String(status||'').toUpperCase();
+  const cls = (s==='POWERED_ON'||s==='REALIZED') ? 'spill-on' : s==='POWERED_OFF' ? 'spill-off' : 'spill-mid';
+  return `<span class="spill ${cls}">${escHtml(String(status||'—'))}</span>`;
+}
+
+function renderTable(headers, rows) {
+  if (!rows.length) return '<div class="empty-result">No results found.</div>';
+  return `<table class="result-table">
+    <thead><tr>${headers.map(h=>`<th>${escHtml(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(row=>`<tr>${row.map(cell=>`<td>${cell??'—'}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function renderOk(msg) {
+  return `<div class="result-ok">✓ ${escHtml(msg)}</div>`;
+}
+
+function renderVmTable(vms) {
+  return renderTable(
+    ['Name','Status','CPU','RAM'],
+    vms.map(v => [escHtml(v.name), spill(v.status), v.cpu??'—', v.memory_mb ? Math.round(v.memory_mb/1024)+' GB' : '—'])
+  );
+}
+
+function renderVmDetail(vm) {
+  const ram = vm.memory_mb ? Math.round(vm.memory_mb/1024)+' GB' : '—';
+  const dv = (v) => `<div class="detail-val">${escHtml(String(v||'—'))}</div>`;
+  const di = (k,v) => v ? `<div class="detail-item"><div class="detail-key">${k}</div>${dv(v)}</div>` : '';
+
+  let html = `<div class="detail-card">
+    <div class="detail-title">${escHtml(vm.name)} ${spill(vm.status)}</div>
+
+    <div class="detail-section">Compute</div>
+    <div class="detail-grid">
+      ${di('vCPU', vm.cpu ? vm.cpu+' vCPU' : null)}
+      ${di('RAM', ram)}
+      ${di('vApp', vm.vapp_name)}
+      ${di('Storage Profile', vm.storage_profile)}
+    </div>
+
+    <div class="detail-section">Operating System</div>
+    <div class="detail-grid">
+      ${di('Guest OS', vm.guest_os)}
+      ${di('Detected OS', vm.detected_os)}
+      ${di('VM Tools', vm.tools_status)}
+    </div>`;
+
+  if (vm.nics?.length) {
+    html += `<div class="detail-section">Network Interfaces (${vm.nics.length})</div>`;
+    html += renderTable(
+      ['#','Network','IP Address','MAC','Mode','Adapter','Link'],
+      vm.nics.map((n,i) => [
+        (n.primary ? '★ ' : '') + (i+1),
+        escHtml(n.network||'—'),
+        escHtml(n.ip||'—'),
+        escHtml(n.mac||'—'),
+        escHtml((n.mode||'').replace(/_/g,' ')),
+        escHtml(n.adapter||'—'),
+        n.connected === true  ? '<span style="color:var(--ok)">Connected</span>'
+          : n.connected === false ? '<span style="color:var(--fail)">Disconnected</span>'
+          : '<span style="color:var(--muted)">—</span>',
+      ])
+    );
+  } else if (vm.ip_address || vm.network_name) {
+    // Fallback: show basic IP/network from adminVM query when full NIC details unavailable
+    html += `<div class="detail-section">Network (basic)</div>
+    <div class="detail-grid">
+      ${di('Network', vm.network_name)}
+      ${di('IP Address', vm.ip_address)}
+    </div>`;
+  }
+
+  if (vm.disks?.length) {
+    html += `<div class="detail-section">Disks (${vm.disks.length})</div>`;
+    html += renderTable(
+      ['Name','Size','Bus / Adapter','Storage Profile'],
+      vm.disks.map(d => [
+        escHtml(d.name||'—'),
+        d.size_mb ? (d.size_mb >= 1024 ? Math.round(d.size_mb/1024)+' GB' : d.size_mb+' MB') : '—',
+        escHtml(d.bus_type||'—'),
+        escHtml(d.storage_profile||'—'),
+      ])
+    );
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderVappTable(vapps) {
+  return renderTable(['Name','Status'], vapps.map(v => [escHtml(v.name), spill(v.status)]));
+}
+
+function renderVappDetail(vapp) {
+  let html = `<div class="detail-card">
+    <div class="detail-title">${escHtml(vapp.name)} ${spill(vapp.status)}</div>`;
+
+  if (vapp.networks?.length) {
+    html += `<div class="detail-section">Networks (${vapp.networks.length})</div>`;
+    html += renderTable(
+      ['Name', 'Type', 'Gateway', 'Netmask', 'DNS'],
+      vapp.networks.map(n => [
+        escHtml(n.name || '—'),
+        escHtml(n.type || '—'),
+        escHtml(n.gateway || '—'),
+        escHtml(n.netmask || '—'),
+        [n.dns1, n.dns2].filter(Boolean).join(', ') || '—',
+      ])
+    );
+  }
+
+  if (vapp.vms?.length) {
+    html += `<div class="detail-section">VMs (${vapp.vms.length})</div>` + renderVmTable(vapp.vms);
+  } else {
+    html += '<div class="empty-result">No VMs found inside this vApp.</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderNetworkDetail(net) {
+  let html = `<div class="detail-card">
+    <div class="detail-title">${escHtml(net.name)}</div>
+    <div class="detail-grid">
+      <div class="detail-item"><div class="detail-key">Type</div><div class="detail-val">${escHtml(net.type||'—')}</div></div>
+      <div class="detail-item"><div class="detail-key">Gateway</div><div class="detail-val">${escHtml(net.gateway||'—')}/${net.prefix_length||'—'}</div></div>
+    </div>`;
+  for (const s of (net.subnets_detail||[])) {
+    const dns1 = s.dnsServer1||s.dns1;
+    const dns2 = s.dnsServer2||s.dns2;
+    if (dns1||dns2) {
+      html += `<div class="detail-grid">`;
+      if (dns1) html += `<div class="detail-item"><div class="detail-key">DNS 1</div><div class="detail-val">${escHtml(dns1)}</div></div>`;
+      if (dns2) html += `<div class="detail-item"><div class="detail-key">DNS 2</div><div class="detail-val">${escHtml(dns2)}</div></div>`;
+      html += `</div>`;
+    }
+    const pools = (s.ipRanges||{}).values||[];
+    if (pools.length) {
+      html += `<div class="detail-section">DHCP Pools</div>`;
+      html += renderTable(['Start','End'], pools.map(p=>[escHtml(p.startAddress||''), escHtml(p.endAddress||'')]));
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
+renderSidebar();
+</script>
+</body>
+</html>

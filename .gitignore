@@ -1,0 +1,19 @@
+# Environment — contains credentials and host URLs, never commit
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Runtime
+logs/
+*.log
+app.pid
+
+# OS
+.DS_Store
+.claude/
