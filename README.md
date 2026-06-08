@@ -89,6 +89,8 @@ VCD_ENVIRONMENTS=Production:https://vcloud.corp.com,DR:https://vcloud-dr.corp.co
 
 > The `.env` file contains your VCD host URLs and is excluded from version control. Never commit it.
 
+> **Adding or changing environments?** Edit `VCD_ENVIRONMENTS` in `.env` and restart the server — changes only take effect on startup.
+
 ### 4. Start the server
 
 ```bash
