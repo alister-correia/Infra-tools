@@ -398,6 +398,22 @@
     }
     .btn-export-csv:hover { border-color: var(--vcd); color: var(--vcd); }
 
+    .btn-console {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      letter-spacing: 0.04em;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .btn-console:hover:not(:disabled) { border-color: #58a6ff; color: #58a6ff; }
+    .btn-console:disabled { opacity: 0.35; cursor: not-allowed; }
+
     .result-loading {
       display: flex;
       align-items: center;
@@ -2039,9 +2055,24 @@ function renderOk(msg) {
 
 function renderVmTable(vms) {
   return renderTable(
-    ['Name','Status','CPU','RAM'],
-    vms.map(v => [escHtml(v.name), spill(v.status), v.cpu??'—', v.memory_mb ? Math.round(v.memory_mb/1024)+' GB' : '—'])
+    ['Name','Status','CPU','RAM',''],
+    vms.map(v => {
+      const powered = (v.status||'').toUpperCase() === 'POWERED_ON';
+      const btn = `<button class="btn-console" ${powered?'':'disabled'} onclick="openVmConsole('${escHtml(v.name).replace(/'/g,"\\'")}')" title="${powered?'Open console':'VM must be powered on'}">Console</button>`;
+      return [escHtml(v.name), spill(v.status), v.cpu??'—', v.memory_mb ? Math.round(v.memory_mb/1024)+' GB' : '—', btn];
+    })
   );
+}
+
+async function openVmConsole(vmName) {
+  try {
+    const data = await apiFetch(`/api/tasks/vm/console?vm_name=${enc(vmName)}`);
+    if (data.url) {
+      window.open(data.url, '_blank', 'width=1100,height=768,noopener,noreferrer');
+    }
+  } catch(e) {
+    alert('Console error: ' + (e.detail || e.message));
+  }
 }
 
 function renderVmDetail(vm) {

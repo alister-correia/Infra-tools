@@ -2232,6 +2232,36 @@ class VCDClient:
         vm_uuid = self._to_uuid(vm_id)
         return self._post_action(self._api(f"vApp/vm-{vm_uuid}/power/action/{action}"))
 
+    def get_vm_console_url(self, vm_id: str) -> str:
+        """Acquire an HTML5 console ticket for a VM and return the console URL."""
+        self._ensure_auth()
+        vm_uuid = self._to_uuid(vm_id)
+        url = self._api(f"vApp/vm-{vm_uuid}/screen/action/acquireConsoleTicket")
+        key = self._token_key(self._host, "System")
+        token = self._tokens.get(key, "")
+        token_type = self._token_types.get(key, "bearer")
+        accept = f"application/*+json;version={self.API_VERSION}"
+        if token_type == "legacy":
+            headers = {"Accept": accept, "x-vcloud-authorization": token}
+        else:
+            headers = {"Accept": accept, "Authorization": f"Bearer {token}"}
+        headers.update(self._org_context_header())
+        resp = self._session.post(url, headers=headers, timeout=self.REQUEST_TIMEOUT)
+        if resp.status_code == 401:
+            self.authenticate(self._active_org)
+            resp = self._session.post(url, headers=headers, timeout=self.REQUEST_TIMEOUT)
+        if resp.status_code not in (200, 201):
+            try:
+                detail = resp.json().get("message", resp.text[:200])
+            except Exception:
+                detail = resp.text[:200]
+            raise VCDClientError(f"Console ticket failed (HTTP {resp.status_code}): {detail}")
+        data = resp.json()
+        href = data.get("href") or data.get("url") or ""
+        if not href:
+            raise VCDClientError("VCD returned no console URL in ticket response")
+        return href
+
     def power_vapp(self, vapp_id: str, action: str) -> dict:
         """action: poweron, poweroff. vapp_id is like 'vapp-uuid' from list_vapps."""
         if not vapp_id.startswith("vapp-"):
