@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import chat, vcd, tasks
+from api.routes import vcd, tasks
 from models.schemas import HealthResponse
 
 logging.basicConfig(
@@ -25,7 +25,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(chat.router)
 app.include_router(vcd.router)
 app.include_router(tasks.router)
 

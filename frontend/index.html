@@ -118,13 +118,6 @@
       gap: 12px;
     }
 
-    .ai-toggle-wrap {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
     .toggle-switch {
       position: relative;
       width: 34px; height: 18px;
@@ -548,63 +541,6 @@
     }
     .security-banner .ban-icon { font-size: 0.85rem; }
 
-    /* ── AI Strip ── */
-    .ai-strip {
-      border-top: 1px solid var(--border);
-      background: var(--surface);
-      display: flex;
-      flex-direction: column;
-      height: 270px;
-      flex-shrink: 0;
-    }
-    .ai-strip-header {
-      padding: 6px 16px;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.68rem;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-    .ai-history {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .ai-history::-webkit-scrollbar { width: 3px; }
-    .ai-history::-webkit-scrollbar-thumb { background: var(--border); }
-    .ai-msg { font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; }
-    .ai-msg.user { color: var(--vcd); }
-    .ai-msg.assistant { color: var(--text); }
-    .ai-msg .ai-label { font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 2px; }
-
-    .ai-input-row {
-      display: flex;
-      gap: 8px;
-      padding: 8px 14px;
-      border-top: 1px solid var(--border);
-      align-items: flex-end;
-    }
-    .ai-input-row textarea {
-      flex: 1;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 0.8rem;
-      padding: 7px 10px;
-      resize: none;
-      height: 34px;
-      outline: none;
-      line-height: 1.4;
-    }
-    .ai-input-row textarea:focus { border-color: var(--vcd); }
-    .ai-input-row textarea::placeholder { color: var(--muted); }
-
     /* ── Login modal ── */
     .modal-overlay {
       position: fixed; inset: 0;
@@ -705,23 +641,6 @@
   </div>
 </div>
 
-<!-- API key modal (AI mode) -->
-<div class="modal-overlay hidden" id="apiKeyOverlay">
-  <div class="modal-card">
-    <div>
-      <h2>Anthropic API Key</h2>
-      <p>Required for AI mode. The key is used only in this tab and never sent to our servers.</p>
-    </div>
-    <div class="form-field">
-      <label>API Key</label>
-      <input id="apiKeyInput" type="password" placeholder="sk-ant-…" autocomplete="off" />
-    </div>
-    <div class="form-error" id="apiKeyError"></div>
-    <button class="btn-primary" onclick="saveApiKey()">Enable AI Mode</button>
-    <button class="btn-secondary" onclick="cancelApiKey()">Cancel</button>
-  </div>
-</div>
-
 <!-- Confirm modal -->
 <div class="modal-overlay hidden" id="confirmOverlay">
   <div class="modal-card" style="max-width:340px">
@@ -764,13 +683,6 @@
   </div>
 
   <div class="header-right">
-    <div class="ai-toggle-wrap">
-      <span>AI</span>
-      <label class="toggle-switch">
-        <input type="checkbox" id="aiToggle" onchange="toggleAI(this.checked)" />
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
     <button class="btn-clear" onclick="clearSession()" title="Clear org/VDC selection">Clear session</button>
     <button class="btn-logout" onclick="logout()">Sign out</button>
   </div>
@@ -783,13 +695,6 @@
     </div>
     <div class="sidebar-tasks" id="sidebarTasks"></div>
     <div class="sidebar-footer">
-      <div class="ai-toggle-wrap" style="font-size:0.72rem">
-        <span style="color:var(--muted)">AI Mode</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="aiToggle2" onchange="document.getElementById('aiToggle').checked=this.checked;toggleAI(this.checked)" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
     </div>
   </aside>
 
@@ -814,14 +719,6 @@
       </div>
     </div>
 
-    <div class="ai-strip" id="aiStrip" style="display:none">
-      <div class="ai-strip-header">AI Assistant — experimental</div>
-      <div class="ai-history" id="aiHistory"></div>
-      <div class="ai-input-row">
-        <textarea id="aiInput" placeholder="Ask about your infrastructure…" rows="1"></textarea>
-        <button class="run-btn" onclick="sendAI()">Send</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -1216,7 +1113,6 @@ const CATEGORIES = [
 let currentTask   = null;
 let paramValues   = {};
 let taskOptions   = {};
-let aiHistory     = [];   // [{role,content}]
 let orgList       = [];
 let orgHighlight  = -1;
 let vdcList       = [];
@@ -1233,7 +1129,6 @@ function authHeaders() {
     'X-VCD-Org-Id':   sessionStorage.getItem('vcd_org_id')   || '',
     'X-VCD-VDC-Id':   sessionStorage.getItem('vcd_vdc_id')   || '',
     'X-VCD-VDC-Name': sessionStorage.getItem('vcd_vdc_name') || '',
-    'X-Anthropic-Key':sessionStorage.getItem('anthropic_key')|| '',
   };
 }
 
@@ -1307,7 +1202,7 @@ function clearSession() {
 }
 
 function logout() {
-  ['vcd_username','vcd_password','anthropic_key','vcd_org','vcd_org_id','vcd_vdc_id','vcd_vdc_name'].forEach(k =>
+  ['vcd_username','vcd_password','vcd_org','vcd_org_id','vcd_vdc_id','vcd_vdc_name'].forEach(k =>
     sessionStorage.removeItem(k));
   document.getElementById('headerSelectors').style.display = 'none';
   document.getElementById('envGroup').style.display = 'none';
@@ -1317,9 +1212,6 @@ function logout() {
   document.getElementById('vdcInput').value = '';
   document.getElementById('vdcGroup').style.display = 'none';
   closeOrgDropdown(); closeVdcDropdown();
-  document.getElementById('aiToggle').checked  = false;
-  document.getElementById('aiToggle2').checked = false;
-  document.getElementById('aiStrip').style.display = 'none';
   document.getElementById('loginOverlay').classList.remove('hidden');
   document.getElementById('loginUser').value = '';
   document.getElementById('loginPass').value = '';
@@ -1348,98 +1240,6 @@ sessionStorage.removeItem('vcd_vdc_name');
     onLoggedIn();
   }
 })();
-
-// ── AI Mode ────────────────────────────────────────────────────────────────
-function toggleAI(enabled) {
-  document.getElementById('aiToggle').checked  = enabled;
-  document.getElementById('aiToggle2').checked = enabled;
-  if (enabled) {
-    if (!sessionStorage.getItem('anthropic_key')) {
-      document.getElementById('apiKeyOverlay').classList.remove('hidden');
-      document.getElementById('apiKeyInput').value = '';
-      document.getElementById('apiKeyError').classList.remove('visible');
-      return;
-    }
-    document.getElementById('aiStrip').style.display = 'flex';
-  } else {
-    document.getElementById('aiStrip').style.display = 'none';
-  }
-}
-
-function saveApiKey() {
-  const key = document.getElementById('apiKeyInput').value.trim();
-  if (!key) {
-    document.getElementById('apiKeyError').textContent = 'API key is required.';
-    document.getElementById('apiKeyError').classList.add('visible');
-    return;
-  }
-  sessionStorage.setItem('anthropic_key', key);
-  document.getElementById('apiKeyOverlay').classList.add('hidden');
-  document.getElementById('aiStrip').style.display = 'flex';
-}
-
-function cancelApiKey() {
-  document.getElementById('apiKeyOverlay').classList.add('hidden');
-  document.getElementById('aiToggle').checked  = false;
-  document.getElementById('aiToggle2').checked = false;
-}
-
-document.getElementById('apiKeyInput').addEventListener('keydown', e => { if (e.key==='Enter') saveApiKey(); });
-
-// ── AI chat ────────────────────────────────────────────────────────────────
-async function sendAI() {
-  const ta  = document.getElementById('aiInput');
-  const text = ta.value.trim();
-  if (!text) return;
-  ta.value = '';
-
-  appendAIMsg('user', text);
-  aiHistory.push({ role:'user', content:text });
-
-  const loadEl = document.createElement('div');
-  loadEl.className = 'ai-msg assistant';
-  loadEl.innerHTML = '<div class="ai-label">Assistant</div><div class="spinner" style="margin-top:4px"></div>';
-  document.getElementById('aiHistory').append(loadEl);
-  scrollAI();
-
-  try {
-    const res = await fetch('/api/chat', {
-      method:'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({ message:text, history: aiHistory.slice(0,-1) }),
-    });
-    loadEl.remove();
-    if (!res.ok) {
-      let msg = 'Error';
-      try { msg = (await res.json()).detail || msg; } catch(_) {}
-      appendAIMsg('assistant', `❌ ${msg}`);
-      return;
-    }
-    const data = await res.json();
-    appendAIMsg('assistant', data.message);
-    aiHistory.push({ role:'assistant', content:data.message });
-  } catch (e) {
-    loadEl.remove();
-    appendAIMsg('assistant', `❌ Network error: ${e.message}`);
-  }
-}
-
-function appendAIMsg(role, text) {
-  const el = document.createElement('div');
-  el.className = `ai-msg ${role}`;
-  el.innerHTML = `<div class="ai-label">${role === 'user' ? 'You' : 'Assistant'}</div><div>${escHtml(text)}</div>`;
-  document.getElementById('aiHistory').append(el);
-  scrollAI();
-}
-
-function scrollAI() {
-  const h = document.getElementById('aiHistory');
-  h.scrollTop = h.scrollHeight;
-}
-
-document.getElementById('aiInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAI(); }
-});
 
 // ── Confirm modal ──────────────────────────────────────────────────────────
 function showConfirm(title, msg) {

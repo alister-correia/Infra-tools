@@ -1,8 +1,6 @@
 # Infra Assistant
 
-A natural-language infrastructure operations tool for VMware vCloud Director (VCD). Use the task panel to list, inspect, and manage VCD resources — VMs, vApps, networks, edge gateways, firewall rules, NAT rules, security groups, and more.
-
-An optional AI chat mode (powered by Claude) lets you type plain English commands instead of using the task cards.
+A browser-based infrastructure operations tool for VMware vCloud Director (VCD). Use the task panel to list, inspect, and manage VCD resources — VMs, vApps, networks, edge gateways, firewall rules, NAT rules, security groups, and more.
 
 ---
 
@@ -10,7 +8,7 @@ An optional AI chat mode (powered by Claude) lets you type plain English command
 
 **No data is stored anywhere by this tool.**
 
-- All VCD credentials (username, password) and your Anthropic API key are stored exclusively in your **browser's sessionStorage** — they exist only for the lifetime of that browser tab and are automatically cleared when the tab is closed
+- All VCD credentials (username, password) are stored exclusively in your **browser's sessionStorage** — they exist only for the lifetime of that browser tab and are automatically cleared when the tab is closed
 - Credentials are never written to disk, never logged, and never persisted on the server
 - Every API call to VCD is a **live fetch** — there is no caching, no database, and no session state on the server side
 - Each request from the browser sends the credentials as HTTP headers directly to the backend, which uses them to authenticate with VCD in real time and returns the result immediately
@@ -39,9 +37,7 @@ An optional AI chat mode (powered by Claude) lets you type plain English command
 - Get full vApp details — child VMs and connected networks
 - Edit VM compute (CPU / memory)
 - Create org VDC networks, edge firewall rules, NAT rules, security groups, IP sets
-- Dry-run mode — preview any write operation before executing
 - Multi-environment support — switch between VCD environments from the UI
-- **Optional AI mode** — toggle on to use natural-language chat; requires an Anthropic API key
 
 ---
 
@@ -49,7 +45,6 @@ An optional AI chat mode (powered by Claude) lets you type plain English command
 
 - Python 3.9+
 - Access to one or more VMware VCD environments
-- An Anthropic API key — **only needed if you want to use AI chat mode**
 
 ---
 
@@ -118,32 +113,6 @@ nohup python3 main.py > logs/server.log 2>&1 &
 4. Select your org — VDCs are fetched live from VCD
 5. Select a VDC — all operations are scoped to it
 
-No API key is needed at this stage. The tool is fully usable without one.
-
----
-
-## AI Mode (optional)
-
-The UI has an **AI toggle** in the top bar. When switched on:
-
-- A chat panel appears where you can type plain-English commands
-- You will be prompted to enter your **Anthropic API key**
-- The key is stored only in your browser tab (`sessionStorage`) and is cleared when the tab is closed
-- It is never sent to the server except as a request header to make the Claude API call — it is not logged or stored
-
-**Example commands in AI mode:**
-```
-list all vms
-show vapp details for my-app
-list firewall rules for EdgeGW-01
-edit vm web-01 — set cpu to 4 and memory to 8gb
-create a routed network called app-net with gateway 10.10.1.1/24
-```
-
-Write operations go through a **dry-run preview** first — you confirm before anything is executed.
-
-To get an Anthropic API key: [console.anthropic.com](https://console.anthropic.com)
-
 ---
 
 ## Project Structure
@@ -156,16 +125,10 @@ infra-assistant/
 ├── .env.example             # Template
 ├── api/
 │   └── routes/
-│       ├── chat.py          # AI chat endpoint
-│       ├── tasks.py         # Direct VCD task endpoints
+│       ├── tasks.py         # VCD task endpoints
 │       └── vcd.py           # VCD env/org/VDC selector endpoints
 ├── connectors/
 │   └── vcd_client.py        # VCD REST API client
-├── services/
-│   ├── intent_parser.py     # Claude-powered NL → structured intent
-│   ├── executor.py          # Executes confirmed write operations
-│   ├── query_executor.py    # Executes read/query operations
-│   └── dry_run.py           # Dry-run plan builder
 ├── models/
 │   └── schemas.py           # Pydantic models
 ├── config/
