@@ -72,25 +72,6 @@ def get_vm(
         raise HTTPException(status_code=502, detail=str(exc))
 
 
-@router.get("/vm/console")
-def get_vm_console(
-    vm_name: Annotated[str, Query()],
-    x_vcd_username: Annotated[str, Header()] = "",
-    x_vcd_password: Annotated[str, Header()] = "",
-    x_vcd_org:      Annotated[str, Header()] = "",
-    x_vcd_vdc_id:   Annotated[str, Header()] = "",
-    x_vcd_vdc_name: Annotated[str, Header()] = "",
-):
-    _require_vdc(x_vcd_vdc_id)
-    try:
-        client = _client(x_vcd_username, x_vcd_password, x_vcd_org)
-        vm_id = client.get_vm_id(x_vcd_vdc_id, vm_name, x_vcd_vdc_name)
-        url = client.get_vm_console_url(vm_id)
-        return {"url": url}
-    except VCDClientError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
-
-
 @router.post("/vm/power")
 def power_vm(
     name:   Annotated[str, Query()],

@@ -411,12 +411,10 @@ class VCDClient:
     # ------------------------------------------------------------------
 
     def list_vdcs(self) -> list:
-        prev_org = self._active_org
-        self._active_org = ""
-        try:
-            data = self._get_all_pages(self._cloudapi("vdcs"))
-        finally:
-            self._active_org = prev_org
+        # Keep _active_org set so the X-VMWARE-VCLOUD-TENANT-CONTEXT header is
+        # included — without it VCD returns VDCs across all orgs for users with
+        # elevated permissions, leaking other tenants' resources.
+        data = self._get_all_pages(self._cloudapi("vdcs"))
         result = []
         for v in data:
             org_ref = v.get("org") or v.get("ownerRef") or v.get("orgRef") or {}
@@ -428,6 +426,12 @@ class VCDClient:
                 "org": org_ref.get("name") or org_ref.get("displayName"),
                 "org_id": org_ref.get("id"),
             })
+        # Extra safety: if we know the active org, discard VDCs from other orgs.
+        if self._active_org and self._active_org != "System":
+            result = [
+                v for v in result
+                if not v.get("org") or v["org"].lower() == self._active_org.lower()
+            ]
         return result
 
     def get_vdc_id(self, name: str) -> str:
@@ -671,10 +675,11 @@ class VCDClient:
         return str(raw) if raw is not None else "UNKNOWN"
 
     def _get_vm_compute(self, vm_uuid: str) -> tuple:
-        """Return (cpu, memory_mb) for a VM by parsing its virtualHardwareSection."""
+        """Return (cpu, memory_mb, disks) for a VM by parsing its virtualHardwareSection."""
         try:
             data = self._get_legacy(self._api(f"vApp/vm-{vm_uuid}"))
             cpu = mem = None
+            disks = []
             sections = data.get("section") or []
             if isinstance(sections, dict):
                 sections = [sections]
@@ -685,6 +690,7 @@ class VCDClient:
                 items = section.get("item") or []
                 if isinstance(items, dict):
                     items = [items]
+                disk_index = 0
                 for item in items:
                     rt = item.get("resourceType", {})
                     rt_val = rt.get("value") if isinstance(rt, dict) else rt
@@ -698,10 +704,13 @@ class VCDClient:
                         cpu = qty
                     elif rt_int == 4:
                         mem = qty
-            return cpu, mem
+                    elif rt_int == 17:
+                        disks.append(self._parse_hw_item(item, disk_index))
+                        disk_index += 1
+            return cpu, mem, disks
         except Exception as exc:
             logger.warning("_get_vm_compute %s failed: %s", vm_uuid[:8], exc)
-            return None, None
+            return None, None, []
 
     def list_vms(self, vdc_id: str, vdc_name: str = "") -> list:
         """List deployed VMs by iterating vApps and parsing their child VM XML.
@@ -737,13 +746,14 @@ class VCDClient:
                         continue
                     seg  = href_m.group(1).rsplit("/", 1)[-1]
                     uuid = seg[3:] if seg.startswith("vm-") else seg
-                    cpu, mem = self._get_vm_compute(uuid)
+                    cpu, mem, disks = self._get_vm_compute(uuid)
                     result.append({
                         "id": f"urn:vcloud:vm:{uuid}",
                         "name": name_m.group(1) if name_m else uuid,
                         "status": self._vm_status_str(status_m.group(1) if status_m else None),
                         "cpu": cpu,
                         "memory_mb": mem,
+                        "disks": disks,
                         "guest_os": None,
                         "detected_os": None,
                         "ip_address": None,
@@ -2231,36 +2241,6 @@ class VCDClient:
         """action: poweron, poweroff, reset"""
         vm_uuid = self._to_uuid(vm_id)
         return self._post_action(self._api(f"vApp/vm-{vm_uuid}/power/action/{action}"))
-
-    def get_vm_console_url(self, vm_id: str) -> str:
-        """Acquire an HTML5 console ticket for a VM and return the console URL."""
-        self._ensure_auth()
-        vm_uuid = self._to_uuid(vm_id)
-        url = self._api(f"vApp/vm-{vm_uuid}/screen/action/acquireConsoleTicket")
-        key = self._token_key(self._host, "System")
-        token = self._tokens.get(key, "")
-        token_type = self._token_types.get(key, "bearer")
-        accept = f"application/*+json;version={self.API_VERSION}"
-        if token_type == "legacy":
-            headers = {"Accept": accept, "x-vcloud-authorization": token}
-        else:
-            headers = {"Accept": accept, "Authorization": f"Bearer {token}"}
-        headers.update(self._org_context_header())
-        resp = self._session.post(url, headers=headers, timeout=self.REQUEST_TIMEOUT)
-        if resp.status_code == 401:
-            self.authenticate(self._active_org)
-            resp = self._session.post(url, headers=headers, timeout=self.REQUEST_TIMEOUT)
-        if resp.status_code not in (200, 201):
-            try:
-                detail = resp.json().get("message", resp.text[:200])
-            except Exception:
-                detail = resp.text[:200]
-            raise VCDClientError(f"Console ticket failed (HTTP {resp.status_code}): {detail}")
-        data = resp.json()
-        href = data.get("href") or data.get("url") or ""
-        if not href:
-            raise VCDClientError("VCD returned no console URL in ticket response")
-        return href
 
     def power_vapp(self, vapp_id: str, action: str) -> dict:
         """action: poweron, poweroff. vapp_id is like 'vapp-uuid' from list_vapps."""

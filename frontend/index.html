@@ -398,22 +398,6 @@
     }
     .btn-export-csv:hover { border-color: var(--vcd); color: var(--vcd); }
 
-    .btn-console {
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 0.68rem;
-      font-weight: 600;
-      padding: 2px 8px;
-      letter-spacing: 0.04em;
-      transition: border-color 0.15s, color 0.15s;
-      white-space: nowrap;
-    }
-    .btn-console:hover:not(:disabled) { border-color: #58a6ff; color: #58a6ff; }
-    .btn-console:disabled { opacity: 0.35; cursor: not-allowed; }
-
     .result-loading {
       display: flex;
       align-items: center;
@@ -745,13 +729,15 @@ const enc = s => encodeURIComponent(s);
 const TASKS = [
   // COMPUTE
   { id:'list_vms', label:'List all VMs', cat:'COMPUTE', icon:'⚡',
-    desc:'All VMs in the VDC with power state, CPU, and RAM.',
+    desc:'All VMs in the VDC with power state, CPU, RAM, and disk sizes.',
+    exportable: true,
     params:[],
     run: () => apiFetch('/api/tasks/vms'),
     render: renderVmTable },
 
   { id:'powered_off', label:'Powered-off VMs', cat:'COMPUTE', icon:'⚡',
     desc:'VMs currently in a powered-off state.',
+    exportable: true,
     params:[],
     run: () => apiFetch('/api/tasks/vms?power_state=POWERED_OFF'),
     render: renderVmTable },
@@ -1280,9 +1266,13 @@ async function loadEnvironments() {
     envs.forEach(e => {
       const o = document.createElement('option');
       o.value = e.name; o.textContent = e.name;
+      if (e.host) o.dataset.host = e.host;
       sel.appendChild(o);
     });
-    if (envs.length) sel.value = envs[0].name;
+    if (envs.length) {
+      sel.value = envs[0].name;
+      if (envs[0].host) sessionStorage.setItem('vcd_host', envs[0].host);
+    }
     document.getElementById('envGroup').style.display = 'flex';
   } catch (_) {}
 }
@@ -1290,7 +1280,8 @@ async function loadEnvironments() {
 async function switchEnvironment(name) {
   if (!name) return;
   try {
-    await apiFetch('/api/vcd/environments/select', { method:'POST', body: JSON.stringify({ name }) });
+    const res = await apiFetch('/api/vcd/environments/select', { method:'POST', body: JSON.stringify({ name }) });
+    if (res.host) sessionStorage.setItem('vcd_host', res.host);
     orgList = []; vdcList = [];
     document.getElementById('orgInput').value = '';
     document.getElementById('vdcInput').value = '';
@@ -1357,16 +1348,20 @@ document.getElementById('orgDropdown').addEventListener('click', e => {
 async function loadVdcs() {
   try {
     const vdcs = await apiFetch('/api/vcd/vdcs');
-    if (!vdcs.length) return;
     const activeOrg = (sessionStorage.getItem('vcd_org') || '').toLowerCase();
     const filtered = activeOrg ? vdcs.filter(v => !v.org || v.org.toLowerCase() === activeOrg) : vdcs;
-    vdcList = (filtered.length ? filtered : vdcs).map(v => ({ id:v.id, name:v.name }));
+    vdcList = filtered.map(v => ({ id:v.id, name:v.name }));
     document.getElementById('vdcGroup').style.display = 'flex';
   } catch (_) {}
 }
 
 function renderVdcDropdown(q) {
   const dd = document.getElementById('vdcDropdown');
+  if (!vdcList.length) {
+    dd.innerHTML = '<div class="autocomplete-item" style="color:var(--muted);cursor:default">No VDCs in this org</div>';
+    dd.classList.add('open');
+    return;
+  }
   const matches = q ? vdcList.filter(v => v.name.toLowerCase().includes(q.toLowerCase())) : vdcList;
   if (!matches.length) { dd.classList.remove('open'); return; }
   dd.innerHTML = matches.map(v => {
@@ -2054,25 +2049,23 @@ function renderOk(msg) {
 }
 
 function renderVmTable(vms) {
-  return renderTable(
-    ['Name','Status','CPU','RAM',''],
-    vms.map(v => {
-      const powered = (v.status||'').toUpperCase() === 'POWERED_ON';
-      const btn = `<button class="btn-console" ${powered?'':'disabled'} onclick="openVmConsole('${escHtml(v.name).replace(/'/g,"\\'")}')" title="${powered?'Open console':'VM must be powered on'}">Console</button>`;
-      return [escHtml(v.name), spill(v.status), v.cpu??'—', v.memory_mb ? Math.round(v.memory_mb/1024)+' GB' : '—', btn];
-    })
-  );
-}
-
-async function openVmConsole(vmName) {
-  try {
-    const data = await apiFetch(`/api/tasks/vm/console?vm_name=${enc(vmName)}`);
-    if (data.url) {
-      window.open(data.url, '_blank', 'width=1100,height=768,noopener,noreferrer');
-    }
-  } catch(e) {
-    alert('Console error: ' + (e.detail || e.message));
+  function diskGb(disks, idx) {
+    const d = disks && disks[idx];
+    if (!d) return '—';
+    return d.size_mb ? Math.round(d.size_mb / 1024) + ' GB' : '—';
   }
+  return renderTable(
+    ['Name','Status','CPU','RAM','HDD 1','HDD 2','HDD 3'],
+    vms.map(v => [
+      escHtml(v.name),
+      spill(v.status),
+      v.cpu ?? '—',
+      v.memory_mb ? Math.round(v.memory_mb / 1024) + ' GB' : '—',
+      diskGb(v.disks, 0),
+      diskGb(v.disks, 1),
+      diskGb(v.disks, 2),
+    ])
+  );
 }
 
 function renderVmDetail(vm) {
