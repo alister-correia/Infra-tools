@@ -1,8 +1,8 @@
 # Infra Assistant
 
-A natural-language infrastructure operations tool for VMware vCloud Director (VCD). Type plain English to list, inspect, and manage VCD resources — VMs, vApps, networks, edge gateways, firewall rules, NAT rules, security groups, and more.
+A natural-language infrastructure operations tool for VMware vCloud Director (VCD). Use the task panel to list, inspect, and manage VCD resources — VMs, vApps, networks, edge gateways, firewall rules, NAT rules, security groups, and more.
 
-Powered by Claude (Anthropic) for intent parsing and a FastAPI backend that talks directly to the VCD REST API.
+An optional AI chat mode (powered by Claude) lets you type plain English commands instead of using the task cards.
 
 ---
 
@@ -16,6 +16,7 @@ Powered by Claude (Anthropic) for intent parsing and a FastAPI backend that talk
 - Dry-run mode — preview any write operation before executing
 - Multi-environment support — switch between VCD environments from the UI
 - Per-user login — credentials are never stored server-side
+- **Optional AI mode** — toggle on to use natural-language chat; requires an Anthropic API key
 
 ---
 
@@ -23,7 +24,7 @@ Powered by Claude (Anthropic) for intent parsing and a FastAPI backend that talk
 
 - Python 3.9+
 - Access to one or more VMware VCD environments
-- An Anthropic API key (entered at login in the UI)
+- An Anthropic API key — **only needed if you want to use AI chat mode**
 
 ---
 
@@ -66,7 +67,7 @@ Example with two environments:
 VCD_ENVIRONMENTS=Production:https://vcloud.corp.com,DR:https://vcloud-dr.corp.com
 ```
 
-> The Anthropic API key is **not** stored in `.env`. It is entered per-user at login through the UI.
+> The `.env` file is excluded from version control. Never commit it.
 
 ### 4. Start the server
 
@@ -88,30 +89,33 @@ nohup python3 main.py > logs/server.log 2>&1 &
 
 1. Open **http://localhost:3030** in your browser
 2. Enter your VCD username and password
-3. Enter your Anthropic API key
-4. Select your VCD environment and org from the dropdowns
-5. Select a VDC — all operations are scoped to the selected VDC
+3. Select your VCD environment and org from the dropdowns
+4. Select a VDC — all operations are scoped to the selected VDC
+
+No API key is needed at this stage. The tool is fully usable without one.
 
 ---
 
-## Usage
+## AI Mode (optional)
 
-Type natural-language commands in the chat panel, or use the task cards on the right panel for common operations.
+The UI has an **AI toggle** in the top bar. When switched on:
 
-**Example commands:**
+- A chat panel appears where you can type plain-English commands
+- You will be prompted to enter your **Anthropic API key**
+- The key is stored only in your browser tab (sessionStorage) and is never sent to the server or stored anywhere
 
+**Example commands in AI mode:**
 ```
 list all vms
 show vapp details for my-app
-list networks
-show firewall rules for EdgeGW-01
-list nat rules
-get vm details for web-01
+list firewall rules for EdgeGW-01
 edit vm web-01 — set cpu to 4 and memory to 8gb
 create a routed network called app-net with gateway 10.10.1.1/24
 ```
 
-Write operations (create, edit) go through a **dry-run preview** first. You confirm before anything is executed.
+Write operations go through a **dry-run preview** first — you confirm before anything is executed.
+
+To get an Anthropic API key: [console.anthropic.com](https://console.anthropic.com)
 
 ---
 
@@ -125,7 +129,7 @@ infra-assistant/
 ├── .env.example             # Template
 ├── api/
 │   └── routes/
-│       ├── chat.py          # NL chat endpoint
+│       ├── chat.py          # AI chat endpoint
 │       ├── tasks.py         # Direct VCD task endpoints
 │       └── vcd.py           # VCD env/org/VDC selector endpoints
 ├── connectors/
@@ -147,6 +151,6 @@ infra-assistant/
 
 ## Notes
 
-- The VCD tenant account used for login must have at least read access to the target VDC
-- `adminVApp` query type is used for vApp listing — this requires org-admin or equivalent tenant role
-- CPU and memory values for VMs are fetched individually per VM; listing many VMs may take a few seconds
+- The VCD account used must have at least read access to the target VDC
+- `adminVApp` query type is used for vApp listing — requires org-admin or equivalent tenant role
+- CPU and memory are fetched individually per VM; listing many VMs across large vApps may take a few seconds
