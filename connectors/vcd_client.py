@@ -398,7 +398,7 @@ class VCDClient:
         try:
             self.authenticate("System")
             values = self._get_all_pages(self._cloudapi("orgs"))
-            return [{"id": o.get("id", ""), "name": o.get("name", "")} for o in values]
+            return [{"id": o.get("id", ""), "name": o.get("name", ""), "displayName": o.get("displayName") or o.get("name", "")} for o in values]
         except VCDClientError:
             raise
         except Exception as exc:
@@ -679,34 +679,48 @@ class VCDClient:
         try:
             data = self._get_legacy(self._api(f"vApp/vm-{vm_uuid}"))
             cpu = mem = None
-            disks = []
+            disks: list = []
+            nics: list = []
+
             sections = data.get("section") or []
             if isinstance(sections, dict):
                 sections = [sections]
+
             for section in sections:
-                stype = str(section.get("_type", ""))
-                if "hardwaresection" not in stype.lower():
+                if not isinstance(section, dict):
                     continue
-                items = section.get("item") or []
-                if isinstance(items, dict):
-                    items = [items]
-                disk_index = 0
-                for item in items:
-                    rt = item.get("resourceType", {})
-                    rt_val = rt.get("value") if isinstance(rt, dict) else rt
-                    vq = item.get("virtualQuantity", {})
-                    qty = vq.get("value") if isinstance(vq, dict) else vq
-                    try:
-                        rt_int = int(rt_val)
-                    except (TypeError, ValueError):
-                        continue
-                    if rt_int == 3:
-                        cpu = qty
-                    elif rt_int == 4:
-                        mem = qty
-                    elif rt_int == 17:
-                        disks.append(self._parse_hw_item(item, disk_index))
-                        disk_index += 1
+                disk_sec = section.get("diskSection")
+                if disk_sec:
+                    disks.extend(self._parse_disk_settings(disk_sec))
+                self._extract_hw_items(section, nics, disks)
+                nested = section.get("virtualHardwareSection") or section.get("VirtualHardwareSection")
+                if isinstance(nested, dict):
+                    self._extract_hw_items(nested, nics, disks)
+                stype = str(section.get("_type", ""))
+                if "hardwaresection" in stype.lower():
+                    items = section.get("item") or []
+                    if isinstance(items, dict):
+                        items = [items]
+                    for item in items:
+                        rt = item.get("resourceType", {})
+                        rt_val = rt.get("value") if isinstance(rt, dict) else rt
+                        vq = item.get("virtualQuantity", {})
+                        qty = vq.get("value") if isinstance(vq, dict) else vq
+                        try:
+                            rt_int = int(rt_val)
+                        except (TypeError, ValueError):
+                            continue
+                        if rt_int == 3:
+                            cpu = qty
+                        elif rt_int == 4:
+                            mem = qty
+
+            vhs = data.get("virtualHardwareSection") or data.get("VirtualHardwareSection")
+            if isinstance(vhs, dict):
+                self._extract_hw_items(vhs, nics, disks)
+            if not disks:
+                self._extract_hw_items(data, nics, disks)
+
             return cpu, mem, disks
         except Exception as exc:
             logger.warning("_get_vm_compute %s failed: %s", vm_uuid[:8], exc)
@@ -1471,7 +1485,7 @@ class VCDClient:
 
         # Fill cpu/memory if list_vms didn't have them
         if vm.get("cpu") is None or vm.get("memory_mb") is None:
-            cpu, mem = self._get_vm_compute(uuid)
+            cpu, mem, _ = self._get_vm_compute(uuid)
             if vm.get("cpu") is None:
                 vm["cpu"] = cpu
             if vm.get("memory_mb") is None:
@@ -2266,7 +2280,7 @@ class VCDClient:
                 vm_uuid = self._to_uuid(vm_id)
                 try:
                     vm_data = self._get_legacy(self._api(f"vApp/vm-{vm_uuid}"))
-                    cpu, mem = self._get_vm_compute(vm_uuid)
+                    cpu, mem, _ = self._get_vm_compute(vm_uuid)
                     vms_out.append({
                         "name": vm_data.get("name"),
                         "status": self._vm_status_str(vm_data.get("status")),

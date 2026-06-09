@@ -731,6 +731,8 @@ const TASKS = [
   { id:'list_vms', label:'List all VMs', cat:'COMPUTE', icon:'⚡',
     desc:'All VMs in the VDC with power state, CPU, RAM, and disk sizes.',
     exportable: true,
+    resultTitle: (data, org) => `VM Compute Details for ${org || '—'} (${data.length} VM${data.length!==1?'s':''})`,
+    csvTitle: () => 'VM Compute Details',
     params:[],
     run: () => apiFetch('/api/tasks/vms'),
     render: renderVmTable },
@@ -738,6 +740,8 @@ const TASKS = [
   { id:'powered_off', label:'Powered-off VMs', cat:'COMPUTE', icon:'⚡',
     desc:'VMs currently in a powered-off state.',
     exportable: true,
+    resultTitle: (data, org) => `VM Compute Details for ${org || '—'} — Powered Off (${data.length} VM${data.length!==1?'s':''})`,
+    csvTitle: () => 'VM Compute Details - Powered Off',
     params:[],
     run: () => apiFetch('/api/tasks/vms?power_state=POWERED_OFF'),
     render: renderVmTable },
@@ -876,6 +880,7 @@ const TASKS = [
   { id:'fw_rules', label:'List Firewall Rules', cat:'GATEWAY', icon:'🛡',
     desc:'User-defined and system firewall rules on an edge gateway.',
     exportable: true,
+    csvTitle: () => 'Firewall Rules',
     params:[{ id:'gateway_id', label:'Edge Gateway', type:'edge-select' }],
     run: p => apiFetch(`/api/tasks/firewall-rules?gateway_id=${enc(p.gateway_id)}`),
     render: data => {
@@ -902,6 +907,7 @@ const TASKS = [
   { id:'nat_rules', label:'List NAT Rules', cat:'GATEWAY', icon:'🛡',
     desc:'NAT rules on an edge gateway.',
     exportable: true,
+    csvTitle: () => 'NAT Rules',
     params:[{ id:'gateway_id', label:'Edge Gateway', type:'edge-select' }],
     run: p => apiFetch(`/api/tasks/nat-rules?gateway_id=${enc(p.gateway_id)}`),
     render: data => renderTable(
@@ -988,6 +994,7 @@ const TASKS = [
   { id:'dfw_rules', label:'DFW Rules', cat:'SECURITY', icon:'🔐',
     desc:'Distributed Firewall rules across all policies in a VDC group (non-edge, micro-segmentation).',
     exportable: true,
+    csvTitle: () => 'DFW Rules',
     params:[{ id:'group_id', label:'VDC Group', type:'vdc-group-select' }],
     run: p => apiFetch(`/api/tasks/dfw-rules?group_id=${enc(p.group_id)}`),
     render: data => renderTable(
@@ -1195,7 +1202,7 @@ async function doLogin() {
   document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); }));
 
 function clearSession() {
-  ['vcd_org','vcd_org_id','vcd_vdc_id','vcd_vdc_name'].forEach(k => sessionStorage.removeItem(k));
+  ['vcd_org','vcd_org_id','vcd_org_display','vcd_vdc_id','vcd_vdc_name'].forEach(k => sessionStorage.removeItem(k));
   document.getElementById('orgInput').value = '';
   document.getElementById('vdcInput').value = '';
   document.getElementById('vdcGroup').style.display = 'none';
@@ -1204,7 +1211,7 @@ function clearSession() {
 }
 
 function logout() {
-  ['vcd_username','vcd_password','vcd_org','vcd_org_id','vcd_vdc_id','vcd_vdc_name'].forEach(k =>
+  ['vcd_username','vcd_password','vcd_org','vcd_org_id','vcd_org_display','vcd_vdc_id','vcd_vdc_name'].forEach(k =>
     sessionStorage.removeItem(k));
   document.getElementById('headerSelectors').style.display = 'none';
   document.getElementById('envGroup').style.display = 'none';
@@ -1295,7 +1302,7 @@ async function switchEnvironment(name) {
 async function loadOrgs() {
   try {
     const orgs = await apiFetch('/api/vcd/orgs');
-    orgList = orgs.map(o => ({ id:o.id, name:o.name }));
+    orgList = orgs.map(o => ({ id:o.id, name:o.name, displayName:o.displayName||o.name }));
   } catch (_) {}
 }
 
@@ -1308,7 +1315,7 @@ function renderOrgDropdown(q) {
     const lbl = q && i !== -1
       ? o.name.slice(0,i) + '<strong>' + o.name.slice(i,i+q.length) + '</strong>' + o.name.slice(i+q.length)
       : o.name;
-    return `<div class="autocomplete-item" data-value="${o.name}" data-id="${o.id}">${lbl}</div>`;
+    return `<div class="autocomplete-item" data-value="${o.name}" data-id="${o.id}" data-display="${escHtml(o.displayName)}">${lbl}</div>`;
   }).join('');
   dd.classList.add('open');
   orgHighlight = -1;
@@ -1316,10 +1323,11 @@ function renderOrgDropdown(q) {
 
 function closeOrgDropdown() { document.getElementById('orgDropdown').classList.remove('open'); orgHighlight = -1; }
 
-function switchOrg(name, id) {
+function switchOrg(name, id, displayName) {
   if (!name) return;
   sessionStorage.setItem('vcd_org', name);
   sessionStorage.setItem('vcd_org_id', id || '');
+  sessionStorage.setItem('vcd_org_display', displayName || name);
   sessionStorage.removeItem('vcd_vdc_id');
   document.getElementById('orgInput').value = name;
   closeOrgDropdown();
@@ -1336,12 +1344,12 @@ orgInput.addEventListener('keydown', e => {
   const items = document.getElementById('orgDropdown').querySelectorAll('.autocomplete-item');
   if (e.key==='ArrowDown') { e.preventDefault(); orgHighlight=Math.min(orgHighlight+1,items.length-1); items.forEach((el,i)=>el.classList.toggle('highlighted',i===orgHighlight)); }
   else if (e.key==='ArrowUp') { e.preventDefault(); orgHighlight=Math.max(orgHighlight-1,-1); items.forEach((el,i)=>el.classList.toggle('highlighted',i===orgHighlight)); }
-  else if (e.key==='Enter') { e.preventDefault(); const h=document.getElementById('orgDropdown').querySelector('.highlighted'); if(h) switchOrg(h.dataset.value, h.dataset.id); }
+  else if (e.key==='Enter') { e.preventDefault(); const h=document.getElementById('orgDropdown').querySelector('.highlighted'); if(h) switchOrg(h.dataset.value, h.dataset.id, h.dataset.display); }
   else if (e.key==='Escape') closeOrgDropdown();
 });
 document.getElementById('orgDropdown').addEventListener('click', e => {
   const item = e.target.closest('.autocomplete-item');
-  if (item) switchOrg(item.dataset.value, item.dataset.id);
+  if (item) switchOrg(item.dataset.value, item.dataset.id, item.dataset.display);
 });
 
 // ── VDC autocomplete ───────────────────────────────────────────────────────
@@ -1975,12 +1983,16 @@ async function runTask() {
   try {
     const data = await currentTask.run(paramValues);
     const html  = currentTask.render(data);
-    const count = Array.isArray(data) ? `${data.length} result${data.length!==1?'s':''}` : '';
+    const org = sessionStorage.getItem('vcd_org_display') || sessionStorage.getItem('vcd_org') || '';
+    const metaTitle = currentTask.resultTitle
+      ? currentTask.resultTitle(data, org)
+      : (Array.isArray(data) ? `${data.length} result${data.length!==1?'s':''}` : '');
+    const csvTitle = currentTask.csvTitle ? currentTask.csvTitle() : currentTask.label;
     const exportBtn = (currentTask.exportable && Array.isArray(data) && data.length > 0)
-      ? `<button class="btn-export-csv" onclick="exportTableAsCsv('${currentTask.label.replace(/'/g, "\\'")}')">⬇ Export CSV</button>`
+      ? `<button class="btn-export-csv" onclick="exportTableAsCsv('${csvTitle.replace(/'/g, "\\'")}')">⬇ Export CSV</button>`
       : '';
     document.getElementById('resultArea').innerHTML =
-      (count || exportBtn ? `<div class="result-meta">${count}${exportBtn}</div>` : '') + html;
+      (metaTitle || exportBtn ? `<div class="result-meta">${metaTitle}${exportBtn}</div>` : '') + html;
   } catch (e) {
     showResultError(e.message);
   }
@@ -2010,9 +2022,8 @@ function exportTableAsCsv(title) {
       return /[",\n\r]/.test(s) ? `"${s}"` : s;
     }).join(',')
   ).join('\r\n');
-  const org = sessionStorage.getItem('vcd_org') || '';
-  const vdc = sessionStorage.getItem('vcd_vdc_name') || '';
-  const filename = [title, org, vdc, new Date().toISOString().slice(0,10)]
+  const org = sessionStorage.getItem('vcd_org_display') || sessionStorage.getItem('vcd_org') || '';
+  const filename = [title, org, new Date().toISOString().slice(0,10)]
     .filter(Boolean).join('_').replace(/\s+/g, '-') + '.csv';
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -2049,21 +2060,21 @@ function renderOk(msg) {
 }
 
 function renderVmTable(vms) {
+  const maxDisks = vms.reduce((m, v) => Math.max(m, (v.disks || []).length), 0);
+  const diskHeaders = Array.from({length: maxDisks}, (_, i) => `HDD ${i + 1}`);
   function diskGb(disks, idx) {
     const d = disks && disks[idx];
     if (!d) return '—';
     return d.size_mb ? Math.round(d.size_mb / 1024) + ' GB' : '—';
   }
   return renderTable(
-    ['Name','Status','CPU','RAM','HDD 1','HDD 2','HDD 3'],
+    ['Name', 'Status', 'CPU', 'RAM', ...diskHeaders],
     vms.map(v => [
       escHtml(v.name),
       spill(v.status),
       v.cpu ?? '—',
       v.memory_mb ? Math.round(v.memory_mb / 1024) + ' GB' : '—',
-      diskGb(v.disks, 0),
-      diskGb(v.disks, 1),
-      diskGb(v.disks, 2),
+      ...diskHeaders.map((_, i) => diskGb(v.disks, i)),
     ])
   );
 }
